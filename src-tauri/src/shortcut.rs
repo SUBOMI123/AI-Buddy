@@ -5,10 +5,18 @@ use tauri_plugin_global_shortcut::{GlobalShortcutExt, Shortcut, ShortcutState};
 /// The shortcut is a toggle (per D-07): press to show, press again to hide.
 pub fn register_shortcut(app: &tauri::AppHandle) -> Result<(), Box<dyn std::error::Error>> {
     let prefs = crate::preferences::load_preferences(app);
-    let shortcut: Shortcut = prefs
-        .shortcut
-        .parse()
-        .expect("Failed to parse shortcut from preferences");
+    let shortcut: Shortcut = match prefs.shortcut.parse() {
+        Ok(s) => s,
+        Err(_) => {
+            eprintln!(
+                "Invalid shortcut in preferences: {}, using default",
+                prefs.shortcut
+            );
+            "CommandOrControl+Shift+Space"
+                .parse()
+                .expect("Default shortcut must be valid")
+        }
+    };
 
     app.global_shortcut()
         .on_shortcut(shortcut, move |app, _shortcut, event| {
