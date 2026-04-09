@@ -49,7 +49,7 @@
   "plugins": {
     "updater": {
       "endpoints": ["https://releases.aibuddy.app/{{target}}/{{arch}}/{{current_version}}"],
-      "pubkey": ""
+      "pubkey": "GENERATE-BEFORE-RELEASE: run `cargo tauri signer generate -w ~/.tauri/ai-buddy.key` and paste public key here"
     }
   }
 }
