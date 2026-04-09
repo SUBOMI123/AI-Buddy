@@ -11,6 +11,11 @@ src-tauri/target/
 .env
 .env.*
 
+# Local tooling
+.claude/
+.wrangler/
+worker/.wrangler/
+
 # OS files
 .DS_Store
 Thumbs.db
