@@ -16,8 +16,11 @@ pub fn toggle_overlay(window: &WebviewWindow) -> tauri::Result<()> {
             let scale = monitor.scale_factor();
             let x = monitor_position.x + (monitor_size.width as i32)
                 - (window_width as f64 * scale) as i32;
-            let y = monitor_position.y;
-            let height = monitor_size.height as f64 / scale;
+            // Use half the screen height, anchored to top-right below menu bar
+            let menu_bar_height: f64 = if cfg!(target_os = "macos") { 25.0 } else { 0.0 };
+            let screen_height = monitor_size.height as f64 / scale;
+            let y = monitor_position.y + (menu_bar_height * scale) as i32;
+            let height = (screen_height - menu_bar_height) * 0.5;
 
             let _ = window.set_position(tauri::Position::Physical(
                 tauri::PhysicalPosition::new(x, y),

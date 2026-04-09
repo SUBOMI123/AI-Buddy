@@ -50,7 +50,7 @@ html, body, #root {
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --color-surface: rgba(28, 28, 30, 0.72);
+    --color-surface: rgba(28, 28, 30, 0.92);
     --color-surface-secondary: rgba(255, 255, 255, 0.08);
     --color-text-primary: rgba(255, 255, 255, 0.92);
     --color-text-secondary: rgba(255, 255, 255, 0.50);
