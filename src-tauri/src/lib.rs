@@ -24,8 +24,9 @@ pub fn run() {
             app.set_activation_policy(tauri::ActivationPolicy::Accessory);
 
             // Ensure installation token is generated on first launch (per D-10)
-            let token = preferences::get_installation_token(app.handle());
-            println!("Installation token generated: {}...", &token[..8]);
+            let _token = preferences::get_installation_token(app.handle());
+            #[cfg(debug_assertions)]
+            println!("Installation token generated: {}...", &_token[..8]);
 
             // Create system tray
             tray::create_tray(app.handle())?;
