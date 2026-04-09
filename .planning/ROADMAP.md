@@ -32,9 +32,9 @@ Decimal phases appear between their surrounding integers in numeric order.
   5. App requests and receives screen capture permission on first launch with a clear explanation of what is captured and why
 **Plans**: 3 plans
 Plans:
-- [ ] 01-01-PLAN.md — Cloudflare Worker proxy with Hono routing, auth middleware, and route stubs
-- [ ] 01-02-PLAN.md — Tauri v2 scaffold, system tray, global shortcut, overlay window config
-- [ ] 01-03-PLAN.md — SolidJS frontend UI: sidebar shell, components, theme, permission flow
+- [x] 01-01-PLAN.md — Cloudflare Worker proxy with Hono routing, auth middleware, and route stubs
+- [x] 01-02-PLAN.md — Tauri v2 scaffold, system tray, global shortcut, overlay window config
+- [x] 01-03-PLAN.md — SolidJS frontend UI: sidebar shell, components, theme, permission flow
 **UI hint**: yes
 
 ### Phase 2: Core AI Loop
