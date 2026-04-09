@@ -1,4 +1,7 @@
+import { SidebarShell } from "./components/SidebarShell";
+
 function App() {
-  return <div id="app">AI Buddy</div>;
+  return <SidebarShell />;
 }
+
 export default App;
