@@ -9,6 +9,7 @@ type Bindings = {
   ANTHROPIC_API_KEY: string;
   ASSEMBLYAI_API_KEY: string;
   ELEVENLABS_API_KEY: string;
+  APP_HMAC_SECRET: string;
   RATE_LIMIT: KVNamespace;
 };
 
@@ -16,6 +17,12 @@ type App = { Bindings: Bindings };
 
 // ---------------------------------------------------------------------------
 // Rate limiting helper (D-10) — 60 req/min per token via Cloudflare KV
+//
+// NOTE: KV is eventually consistent. The read-then-write pattern below has a
+// TOCTOU race: under high concurrency, multiple requests may read the same
+// count before any write lands, allowing bursts of up to ~2x the limit.
+// For strict enforcement, migrate to Cloudflare Durable Objects (atomic
+// counter). This KV approach is acceptable for private beta traffic levels.
 // ---------------------------------------------------------------------------
 
 async function checkRateLimit(
@@ -42,8 +49,10 @@ async function checkRateLimit(
 
 const app = new Hono<App>();
 
-// CORS middleware — allow all origins for development (T-01-05: restrict before production)
-app.use('*', cors({ origin: '*' }));
+// CORS middleware — restricted to Tauri dev server origin.
+// Tauri production builds make requests from Rust (not a browser), so CORS is
+// irrelevant in production. This covers the dev-server case only.
+app.use('*', cors({ origin: 'http://localhost:1420' }));
 
 // ---------------------------------------------------------------------------
 // Auth + rate-limit middleware (applied to all routes except /health)
@@ -55,15 +64,43 @@ app.use('*', async (c, next) => {
     return next();
   }
 
-  // 1. Validate x-app-token header
+  // 1. Validate x-app-token header via HMAC signature (per CLAUDE.md D-10)
+  //    Token format: "<installationId>.<hex-signature>"
+  //    The client signs its installation UUID with the shared APP_HMAC_SECRET.
   const token = c.req.header('x-app-token');
 
-  if (!token || token.length < 32) {
+  if (!token || !token.includes('.')) {
     return c.json({ error: 'Unauthorized' }, 401);
   }
 
-  // 2. Check rate limit via KV
-  const { allowed, remaining } = await checkRateLimit(c.env.RATE_LIMIT, token);
+  const [tokenValue, signature] = token.split('.', 2);
+  if (!tokenValue || !signature) {
+    return c.json({ error: 'Unauthorized' }, 401);
+  }
+
+  // Verify HMAC-SHA256 signature
+  const hmacKey = await crypto.subtle.importKey(
+    'raw',
+    new TextEncoder().encode(c.env.APP_HMAC_SECRET),
+    { name: 'HMAC', hash: 'SHA-256' },
+    false,
+    ['sign'],
+  );
+  const expectedBuf = await crypto.subtle.sign(
+    'HMAC',
+    hmacKey,
+    new TextEncoder().encode(tokenValue),
+  );
+  const expectedHex = [...new Uint8Array(expectedBuf)]
+    .map((b) => b.toString(16).padStart(2, '0'))
+    .join('');
+
+  if (signature !== expectedHex) {
+    return c.json({ error: 'Unauthorized' }, 401);
+  }
+
+  // 2. Check rate limit via KV (keyed on installation ID, not full token)
+  const { allowed, remaining } = await checkRateLimit(c.env.RATE_LIMIT, tokenValue);
 
   if (!allowed) {
     return c.json(
@@ -112,7 +149,12 @@ app.post('/chat', async (c) => {
       'x-api-key': c.env.ANTHROPIC_API_KEY,
       'anthropic-version': '2023-06-01',
     },
-    body: JSON.stringify({ ...body, stream: true }),
+    body: JSON.stringify({
+      model: body.model ?? 'claude-3-5-sonnet-20241022',
+      messages: body.messages,
+      max_tokens: Math.min(Number(body.max_tokens) || 4096, 4096),
+      stream: true,
+    }),
   });
 
   // SSE passthrough
