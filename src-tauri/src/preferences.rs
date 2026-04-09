@@ -1,0 +1,89 @@
+use serde::{Deserialize, Serialize};
+use std::fs;
+use std::path::PathBuf;
+use tauri::{AppHandle, Manager};
+use uuid::Uuid;
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Preferences {
+    pub shortcut: String,
+    pub installation_token: String,
+    pub sidebar_edge: String, // "right" or "left"
+}
+
+impl Default for Preferences {
+    fn default() -> Self {
+        Self {
+            shortcut: "CommandOrControl+Shift+Space".to_string(),
+            installation_token: Uuid::new_v4().to_string(),
+            sidebar_edge: "right".to_string(),
+        }
+    }
+}
+
+fn prefs_path(app: &AppHandle) -> PathBuf {
+    let dir = app
+        .path()
+        .app_data_dir()
+        .expect("Failed to get app data dir");
+    fs::create_dir_all(&dir).ok();
+    dir.join("settings.json")
+}
+
+pub fn load_preferences(app: &AppHandle) -> Preferences {
+    let path = prefs_path(app);
+    match fs::read_to_string(&path) {
+        Ok(contents) => serde_json::from_str(&contents).unwrap_or_default(),
+        Err(_) => {
+            // First launch: generate new preferences with unique token
+            let prefs = Preferences::default();
+            save_preferences(app, &prefs);
+            prefs
+        }
+    }
+}
+
+pub fn save_preferences(app: &AppHandle, prefs: &Preferences) {
+    let path = prefs_path(app);
+    if let Ok(json) = serde_json::to_string_pretty(prefs) {
+        let _ = fs::write(path, json);
+    }
+}
+
+/// Returns the installation token, generating one on first launch if needed.
+pub fn get_installation_token(app: &AppHandle) -> String {
+    load_preferences(app).installation_token
+}
+
+/// Tauri command: get current shortcut binding
+#[tauri::command]
+pub fn cmd_get_shortcut(app: AppHandle) -> String {
+    load_preferences(&app).shortcut
+}
+
+/// Tauri command: update shortcut binding and re-register
+#[tauri::command]
+pub fn cmd_set_shortcut(app: AppHandle, shortcut: String) -> Result<String, String> {
+    // Validate the shortcut parses before saving
+    let parsed: Result<tauri_plugin_global_shortcut::Shortcut, _> = shortcut.parse();
+    if parsed.is_err() {
+        return Err(format!("Invalid shortcut: {}", shortcut));
+    }
+
+    let mut prefs = load_preferences(&app);
+    let old_shortcut = prefs.shortcut.clone();
+    prefs.shortcut = shortcut.clone();
+    save_preferences(&app, &prefs);
+
+    // Re-register the shortcut
+    crate::shortcut::update_shortcut(&app, &old_shortcut, &shortcut)
+        .map_err(|e| format!("Failed to update shortcut: {}", e))?;
+
+    Ok(shortcut)
+}
+
+/// Tauri command: get installation token (used by frontend to set x-app-token header)
+#[tauri::command]
+pub fn cmd_get_token(app: AppHandle) -> String {
+    get_installation_token(&app)
+}
