@@ -50,10 +50,10 @@ Exceptions: Touch/click targets for tray menu items and the text input submit ar
 | Role | Size | Weight | Line Height |
 |------|------|--------|-------------|
 | Body | 14px | 400 (regular) | 1.5 |
-| Label | 12px | 500 (medium) | 1.4 |
+| Label | 12px | 400 (regular) | 1.4 |
 | Heading | 16px | 600 (semibold) | 1.3 |
 
-**3 sizes, 2 effective weights (400 and 600; 500 used only for labels).** 14px body is correct for a 300px-wide sidebar — 16px body would crowd the narrow panel. System font stack renders at native weight on each OS.
+**3 sizes, 2 weights (400 regular and 600 semibold).** 14px body is correct for a 300px-wide sidebar — 16px body would crowd the narrow panel. Labels use regular weight at a smaller size to create visual hierarchy through size alone, reserving semibold exclusively for headings. System font stack renders at native weight on each OS.
 
 ---
 
@@ -152,7 +152,8 @@ Phase 1 renders exactly these components. No others.
 | Empty state heading | "Ready to help" |
 | Empty state body | "Ask me anything about what's on your screen. I'll guide you step by step." |
 | Empty state (no permission) | "Screen capture permission is needed to help you. Open System Preferences > Privacy > Screen Recording to grant access." |
-| Error state (generic) | "Something went wrong. Try again, or restart AI Buddy from the system tray." |
+| Error state (permission check) | "Could not check screen capture permission. Try again, or restart AI Buddy from the system tray." |
+| Error state (overlay failed) | "Could not open the sidebar overlay. Restart AI Buddy from the system tray." |
 | Input placeholder | "Ask me anything about what's on your screen..." |
 | Permission disclosure | "AI Buddy captures a screenshot of your screen when you ask for help. Screenshots are sent to the AI for analysis and are never stored. No continuous recording." |
 | Phase 1 stub response | "Not connected yet — AI guidance will be available in the next update." |
@@ -223,7 +224,6 @@ All visual tokens defined as CSS custom properties on `:root`. Theme switching h
   --font-size-body: 14px;
   --font-size-heading: 16px;
   --font-weight-regular: 400;
-  --font-weight-medium: 500;
   --font-weight-semibold: 600;
   --line-height-body: 1.5;
   --line-height-label: 1.4;
