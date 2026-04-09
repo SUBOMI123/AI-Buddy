@@ -1,55 +1,110 @@
-# AI Buddy — V1 Requirements
+# Requirements: AI Buddy
 
-## REQ-001: Intent Capture
-The app must accept user intent via voice or text input. User states what they want to accomplish (e.g., "I want to filter by last 30 days"). The system interprets intent, not UI element descriptions.
+**Defined:** 2026-04-09
+**Core Value:** Users complete tasks in unfamiliar software without Googling or getting stuck
 
-## REQ-002: Screen Observation
-The app must capture the current screen state to understand what the user is looking at. Directional accuracy (~70-80%) is sufficient — identify regions (toolbar, sidebar, main area), icons, and labels. Pixel-perfect precision is NOT required.
+## v1 Requirements
 
-## REQ-003: Screen Selection
-Users must be able to highlight or box-select a region of the screen to focus the AI's attention on a specific area. This narrows context and improves guidance accuracy.
+### App Foundation
 
-## REQ-004: Step-by-Step Guidance
-The app must respond with clear, concise, sequential steps to complete the user's intended task. Steps must be:
-- Directionally accurate ("top toolbar → filter icon")
-- Flow-correct (steps actually lead to the outcome, no dead ends)
-- Visually descriptive (reference positions, icons, labels — not coordinates)
+- [ ] **FOUND-01**: App runs as system tray / menu bar presence (no dock icon, no window switcher entry)
+- [ ] **FOUND-02**: Global keyboard shortcut invokes the assistant without leaving current context
+- [ ] **FOUND-03**: Non-obstructive overlay UI displays guidance without stealing focus or obscuring the work area
+- [ ] **FOUND-04**: Privacy transparency — clear disclosure of what is captured, when, and where data goes
+- [ ] **FOUND-05**: Cross-platform support for macOS and Windows via Tauri v2 with low resource footprint (~15-30MB RAM)
 
-## REQ-005: Lightweight Learning Memory
-The app must track:
-- What the user has struggled with
-- What tasks they've completed successfully
-- Specific knowledge gaps and strengths (granular)
+### Core AI Loop
 
-This memory is used to:
-- Skip steps the user already knows
-- Shorten explanations over time
-- Derive high-level skill profiles from granular data
+- [ ] **CORE-01**: User can state intent via text input ("I want to do X")
+- [ ] **CORE-02**: App captures current screen state on demand via screenshot for AI context
+- [ ] **CORE-03**: AI generates step-by-step directional guidance that is flow-correct and visually descriptive
+- [ ] **CORE-04**: Responses stream in real-time with perceived response under 3-5 seconds
+- [ ] **CORE-05**: AI asks contextual clarification when intent is ambiguous rather than guessing
 
-## REQ-006: Degrading Guidance
-Guidance must adapt based on memory:
-- First encounter → detailed step-by-step
-- Second encounter → shorter, skip known steps
-- Third+ encounter → hints only
+### Voice
 
-The user should feel like they're getting better over time.
+- [ ] **VOICE-01**: Push-to-talk voice input via speech-to-text (AssemblyAI streaming)
+- [ ] **VOICE-02**: Voice output via text-to-speech for eyes-on-screen guidance (ElevenLabs)
 
-## REQ-007: Cross-Platform Desktop
-The app must run on macOS and Windows. Built with Tauri v2. Must support:
-- System tray / menu bar presence
-- Transparent overlay windows
-- Background operation with low resource footprint (~15-30MB RAM)
-- Microphone access for push-to-talk voice input
+### Screen Interaction
 
-## REQ-008: Voice I/O
-The app must support:
-- Push-to-talk voice input (speech-to-text)
-- Voice response output (text-to-speech)
-- Text input as alternative to voice
+- [ ] **SCRN-01**: User can box-select or highlight a screen region to focus AI attention on a specific area
 
-## REQ-009: AI Backend
-The app must use Claude as the AI backbone for:
-- Screen understanding (vision)
-- Intent interpretation
-- Step generation
-API keys proxied through a Cloudflare Worker (never shipped in app binary).
+### Learning & Adaptation
+
+- [ ] **LEARN-01**: Local learning memory tracks task struggles, completions, and knowledge gaps (granular knowledge graph)
+- [ ] **LEARN-02**: Degrading guidance adapts over time — detailed steps on first encounter, shorter on second, hints on third+
+- [ ] **LEARN-03**: High-level skill profiles derived automatically from granular memory data
+
+### Infrastructure
+
+- [ ] **INFRA-01**: All API calls proxied through Cloudflare Worker — API keys never shipped in app binary
+- [ ] **INFRA-02**: App operates as always-on background process with minimal resource consumption
+
+## v2 Requirements
+
+### Voice Enhancement
+
+- **VOICE-03**: Interruption / barge-in support — user can interrupt mid-response to correct course
+- **VOICE-04**: Conversational follow-up within same task context
+
+### Visual Guidance
+
+- **VIS-01**: Rich visual overlays — arrows, circles, highlights drawn on screen to point at UI elements
+- **VIS-02**: Step-by-step visual walkthroughs with animated annotations
+
+### Intelligence
+
+- **INTEL-01**: App detection — identify which app is in focus for tailored guidance vocabulary
+- **INTEL-02**: DOM assist for web apps — read page structure for higher precision guidance
+- **INTEL-03**: Proactive suggestions based on detected user confusion (opt-in only)
+
+### Automation
+
+- **AUTO-01**: Partial automation — offer to perform repetitive clicks/steps directly (user must approve each action)
+
+## Out of Scope
+
+| Feature | Reason |
+|---------|--------|
+| Mobile app (iOS/Android) | OS sandboxing prevents screen observation across apps. Core mechanic doesn't exist on mobile |
+| Continuous screen recording | Privacy nightmare — Rewind AI backlash. Capture only on demand |
+| Autonomous computer use | Changes trust model entirely. Users lose control. High failure rate causes cascading errors |
+| Pixel-perfect cursor pointing | Brittle across UI updates. Directional guidance is more robust and sufficient |
+| Open-ended chatbot mode | Dilutes task-completion focus. Users already have ChatGPT for general chat |
+| App-specific API integrations | Breaks "works universally" promise. Every integration is maintenance surface |
+| Team / enterprise features | Wrong product stage. Adds auth, multi-tenancy, compliance complexity |
+| Onboarding tutorials / gamification | This is a task tool, not a learning platform. First successful task IS the onboarding |
+| Always-watching / proactive monitoring | Surveillance feel triggers user backlash. User-initiated only |
+
+## Traceability
+
+| Requirement | Phase | Status |
+|-------------|-------|--------|
+| FOUND-01 | — | Pending |
+| FOUND-02 | — | Pending |
+| FOUND-03 | — | Pending |
+| FOUND-04 | — | Pending |
+| FOUND-05 | — | Pending |
+| CORE-01 | — | Pending |
+| CORE-02 | — | Pending |
+| CORE-03 | — | Pending |
+| CORE-04 | — | Pending |
+| CORE-05 | — | Pending |
+| VOICE-01 | — | Pending |
+| VOICE-02 | — | Pending |
+| SCRN-01 | — | Pending |
+| LEARN-01 | — | Pending |
+| LEARN-02 | — | Pending |
+| LEARN-03 | — | Pending |
+| INFRA-01 | — | Pending |
+| INFRA-02 | — | Pending |
+
+**Coverage:**
+- v1 requirements: 18 total
+- Mapped to phases: 0
+- Unmapped: 18 ⚠️
+
+---
+*Requirements defined: 2026-04-09*
+*Last updated: 2026-04-09 after initial definition*
