@@ -46,7 +46,14 @@ pub fn load_preferences(app: &AppHandle) -> Preferences {
 pub fn save_preferences(app: &AppHandle, prefs: &Preferences) {
     let path = prefs_path(app);
     if let Ok(json) = serde_json::to_string_pretty(prefs) {
-        let _ = fs::write(path, json);
+        let _ = fs::write(&path, json);
+
+        // Restrict file permissions to owner-only on Unix (contains installation token)
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            let _ = fs::set_permissions(&path, fs::Permissions::from_mode(0o600));
+        }
     }
 }
 
