@@ -30,7 +30,11 @@ Decimal phases appear between their surrounding integers in numeric order.
   3. Global keyboard shortcut invokes the overlay from any foreground app without that app losing focus
   4. Overlay panel renders on screen and can be dismissed without obscuring the user's active work area
   5. App requests and receives screen capture permission on first launch with a clear explanation of what is captured and why
-**Plans**: TBD
+**Plans**: 3 plans
+Plans:
+- [ ] 01-01-PLAN.md — Cloudflare Worker proxy with Hono routing, auth middleware, and route stubs
+- [ ] 01-02-PLAN.md — Tauri v2 scaffold, system tray, global shortcut, overlay window config
+- [ ] 01-03-PLAN.md — SolidJS frontend UI: sidebar shell, components, theme, permission flow
 **UI hint**: yes
 
 ### Phase 2: Core AI Loop
@@ -85,7 +89,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Infrastructure & App Shell | 0/TBD | Not started | - |
+| 1. Infrastructure & App Shell | 0/3 | Planning complete | - |
 | 2. Core AI Loop | 0/TBD | Not started | - |
 | 3. Voice I/O | 0/TBD | Not started | - |
 | 4. Screen Region Selection | 0/TBD | Not started | - |
