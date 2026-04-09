@@ -2,6 +2,9 @@ import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 import app from './index.js';
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type Json = Record<string, any>;
+
 // ---------------------------------------------------------------------------
 // Mock KV Namespace
 // ---------------------------------------------------------------------------
@@ -67,7 +70,7 @@ describe('GET /health', () => {
   it('returns 200 with status ok and version', async () => {
     const res = await req('/health');
     assert.equal(res.status, 200);
-    const body = await res.json();
+    const body = ((await res.json()) as Json) as Json;
     assert.equal(body.status, 'ok');
     assert.equal(body.version, '1.0.0');
   });
@@ -87,7 +90,7 @@ describe('POST /chat', () => {
       body: JSON.stringify({ messages: [{ role: 'user', content: 'hello' }] }),
     });
     assert.equal(res.status, 401);
-    const body = await res.json();
+    const body = ((await res.json()) as Json) as Json;
     assert.equal(body.error, 'Unauthorized');
   });
 
@@ -113,7 +116,7 @@ describe('POST /chat', () => {
       body: JSON.stringify({ model: 'claude-3-5-sonnet' }),
     });
     assert.equal(res.status, 400);
-    const body = await res.json();
+    const body = ((await res.json()) as Json) as Json;
     assert.equal(body.error, 'messages array is required');
   });
 
@@ -127,7 +130,7 @@ describe('POST /chat', () => {
       body: '{}',
     });
     assert.equal(res.status, 400);
-    const body = await res.json();
+    const body = (await res.json()) as Json;
     assert.equal(body.error, 'messages array is required');
   });
 });
@@ -139,7 +142,7 @@ describe('POST /stt', () => {
       headers: { 'x-app-token': VALID_TOKEN },
     });
     assert.equal(res.status, 501);
-    const body = await res.json();
+    const body = (await res.json()) as Json;
     assert.equal(body.status, 'not_implemented');
   });
 });
@@ -151,7 +154,7 @@ describe('POST /tts', () => {
       headers: { 'x-app-token': VALID_TOKEN },
     });
     assert.equal(res.status, 501);
-    const body = await res.json();
+    const body = (await res.json()) as Json;
     assert.equal(body.status, 'not_implemented');
   });
 });
@@ -179,7 +182,7 @@ describe('Rate limiting', () => {
 
     assert.equal(res.status, 429);
     assert.equal(res.headers.get('Retry-After'), '60');
-    const body = await res.json();
+    const body = (await res.json()) as Json;
     assert.equal(body.error, 'Rate limit exceeded');
     assert.equal(body.retry_after, 60);
   });
