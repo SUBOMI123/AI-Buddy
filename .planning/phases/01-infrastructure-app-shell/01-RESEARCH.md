@@ -545,19 +545,19 @@ export async function toggleOverlay() {
 | A4 | Tauri v2 `create-tauri-app` has a working `solid-ts` template | Installation | LOW -- multiple sources confirm this template exists |
 | A5 | Cloudflare Worker free tier (100k req/day) sufficient for development and private beta | Standard Stack | LOW -- development usage is orders of magnitude below this limit |
 
-## Open Questions
+## Open Questions (RESOLVED)
 
-1. **Exact cursor-polling implementation for click-through**
+1. **Exact cursor-polling implementation for click-through** (RESOLVED)
    - What we know: Tauri exposes `setIgnoreCursorEvents`. Manasight blog confirms 60fps polling works. macOS `focusable: false` is buggy.
    - What's unclear: Best approach for determining cursor position relative to UI elements (Rust-side screen coordinates vs frontend mouseover events via IPC).
    - Recommendation: Start with frontend approach -- sidebar sends `mouseenter`/`mouseleave` events via IPC to toggle `setIgnoreCursorEvents`. Simpler than 60fps position polling. Fall back to polling only if frontend events are unreliable.
 
-2. **Installation token generation and validation (D-10)**
+2. **Installation token generation and validation (D-10)** (RESOLVED)
    - What we know: App generates UUID on first launch, Worker validates per-token rate limits.
    - What's unclear: Where to store the token on the client (Tauri app data dir? OS keychain?). How Worker validates without a database (KV? D1?).
    - Recommendation: Store token in Tauri `app_data_dir()` as a plain JSON file for V1. Worker validates against Cloudflare KV store. Simple and sufficient for private beta.
 
-3. **Sidebar drag-to-edge behavior (D-01)**
+3. **Sidebar drag-to-edge behavior (D-01)** (RESOLVED)
    - What we know: User can drag sidebar to left or right edge. Position persists.
    - What's unclear: Tauri's drag region behavior with `decorations: false`. Need to test whether custom drag handle works with `set_position`.
    - Recommendation: Implement via custom drag handle component that calls `appWindow.startDragging()` on mousedown. On drag end, snap to nearest edge. Store last edge in local preferences (JSON file or rusqlite).
