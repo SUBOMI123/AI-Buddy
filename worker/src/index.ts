@@ -226,8 +226,8 @@ app.post('/tts', async (c) => {
   }
 
   // ElevenLabs voice ID — use "Rachel" (natural, clear instructional voice)
-  // voice_id: 21m00Tcm4TlvDq8ikWAM is ElevenLabs "Rachel" — clear and neutral
-  const voiceId = body.voice_id ?? '21m00Tcm4TlvDq8ikWAM';
+  // voice_id: Xb7hH8MSUJpSbSDYk0k2 is ElevenLabs "Alice" — available on free tier
+  const voiceId = body.voice_id ?? 'Xb7hH8MSUJpSbSDYk0k2';
   const elevenUrl = `https://api.elevenlabs.io/v1/text-to-speech/${voiceId}/stream`;
 
   let elevenResponse: Response;

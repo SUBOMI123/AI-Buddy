@@ -249,7 +249,7 @@ pub async fn start_ptt_session(
             token, sample_rate
         );
 
-        eprintln!("PTT: connecting WebSocket — {}", ws_url);
+        eprintln!("PTT: connecting WebSocket");
         let (ws_stream, _) = match connect_async(&ws_url).await {
             Ok(conn) => conn,
             Err(e) => {
@@ -265,17 +265,9 @@ pub async fn start_ptt_session(
 
         // Wait for AssemblyAI v3 "Begin" handshake before sending audio.
         // The server closes the connection immediately if the token is wrong.
-        eprintln!("PTT: waiting for Begin handshake...");
         match ws_read.next().await {
-            Some(Ok(Message::Text(text))) => {
-                eprintln!("PTT: handshake text: {}", text);
-            }
-            Some(Ok(Message::Binary(bytes))) => {
-                // AssemblyAI v3 may send JSON as binary frames
-                let decoded = std::str::from_utf8(&bytes)
-                    .map(|s| s.to_string())
-                    .unwrap_or_else(|_| format!("<{} binary bytes>", bytes.len()));
-                eprintln!("PTT: handshake binary: {}", decoded);
+            Some(Ok(Message::Text(_))) | Some(Ok(Message::Binary(_))) => {
+                // Begin handshake received
             }
             Some(Ok(Message::Close(frame))) => {
                 let reason = frame.map(|f| format!("{}: {}", f.code, f.reason)).unwrap_or_default();
@@ -284,9 +276,7 @@ pub async fn start_ptt_session(
                 let _ = app_for_ws.emit("stt-error", format!("STT rejected: {}", reason));
                 return;
             }
-            Some(Ok(other)) => {
-                eprintln!("PTT: handshake other frame: {:?}", other);
-            }
+            Some(Ok(_)) => {}
             Some(Err(e)) => {
                 eprintln!("PTT: WS error during handshake: {}", e);
                 IS_PTT_ACTIVE.store(false, Ordering::SeqCst);
@@ -371,7 +361,6 @@ pub async fn start_ptt_session(
                 msg = ws_read.next() => {
                     match msg {
                         Some(Ok(Message::Text(text))) => {
-                            eprintln!("PTT: WS text: {}", text);
                             if let Ok(parsed) = serde_json::from_str::<AssemblyAiMessage>(&text) {
                                 match parsed.msg_type.as_str() {
                                     "Turn" => {
@@ -391,21 +380,16 @@ pub async fn start_ptt_session(
                                         IS_PTT_ACTIVE.store(false, Ordering::SeqCst);
                                         break;
                                     }
-                                    other => {
-                                        eprintln!("PTT: WS msg type '{}' (ignored)", other);
-                                    }
+                                    _ => {}
                                 }
-                            } else {
-                                eprintln!("PTT: WS unparsed text: {}", text);
                             }
                         }
                         Some(Ok(Message::Binary(bytes))) => {
                             // AssemblyAI v3 may send Turn messages as binary frames
                             let text = match std::str::from_utf8(&bytes) {
                                 Ok(s) => s.to_string(),
-                                Err(_) => { eprintln!("PTT: WS non-UTF8 binary frame"); continue; }
+                                Err(_) => continue,
                             };
-                            eprintln!("PTT: WS binary: {}", text);
                             if let Ok(parsed) = serde_json::from_str::<AssemblyAiMessage>(&text) {
                                 match parsed.msg_type.as_str() {
                                     "Turn" => {
@@ -425,12 +409,8 @@ pub async fn start_ptt_session(
                                         IS_PTT_ACTIVE.store(false, Ordering::SeqCst);
                                         break;
                                     }
-                                    other => {
-                                        eprintln!("PTT: WS binary msg type '{}' (ignored)", other);
-                                    }
+                                    _ => {}
                                 }
-                            } else {
-                                eprintln!("PTT: WS unparsed binary: {}", text);
                             }
                         }
                         Some(Ok(Message::Close(frame))) => {

@@ -15,6 +15,7 @@ import {
   onSttFinal,
   onSttError,
   getTtsEnabled,
+  playTts,
 } from "../lib/tauri";
 import { streamGuidance } from "../lib/ai";
 
@@ -183,6 +184,10 @@ export function SidebarShell() {
       onDone: () => {
         if (contentState() === "loading") {
           setContentState("streaming");
+        }
+        // Auto-play full guidance on arrival if TTS enabled (D-12: silent fail)
+        if (ttsEnabled()) {
+          playTts(streamingText()).catch(() => {});
         }
       },
       signal: abortController.signal,
