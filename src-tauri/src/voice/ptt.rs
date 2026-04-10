@@ -140,36 +140,38 @@ pub async fn start_ptt_session(
         let sample_format = supported.sample_format();
         let config: cpal::StreamConfig = supported.into();
         let channels = config.channels as usize;
+        // Decimate to 16 kHz — AssemblyAI pcm_s16le only supports 8/16 kHz.
+        // For 48 kHz: keep every 3rd frame. For 44100 Hz: keep every 2nd (~22 kHz,
+        // acceptable). For devices already at 16 kHz: factor=1 (no decimation).
+        let resample_factor = ((sample_rate_val / 16000) as usize).max(1);
 
-        eprintln!("PTT: mic config — {}Hz, {} ch, {:?}", sample_rate_val, channels, sample_format);
+        eprintln!(
+            "PTT: mic config — {}Hz, {} ch, {:?}, decimating by {}→16kHz",
+            sample_rate_val, channels, sample_format, resample_factor
+        );
 
-        // Unblock the async WebSocket task — it can now connect with correct rate.
-        let _ = sr_tx.send(Ok(sample_rate_val));
+        // Unblock the async WebSocket task — always 16 kHz after decimation.
+        let _ = sr_tx.send(Ok(16000u32));
 
-        // Build stream handling the two common formats on macOS.
-        // Mix multi-channel audio to mono — AssemblyAI expects mono PCM.
+        // Build stream: mix channels to mono, decimate to 16 kHz, encode as i16 LE.
         let pcm_tx_f32 = pcm_tx_clone.clone();
         let stream = match sample_format {
             cpal::SampleFormat::F32 => device.build_input_stream(
                 &config,
                 move |data: &[f32], _| {
-                    let bytes: Vec<u8> = if channels == 1 {
-                        data.iter()
-                            .flat_map(|s| {
-                                let i = (s.clamp(-1.0, 1.0) * i16::MAX as f32) as i16;
-                                i.to_le_bytes()
-                            })
-                            .collect()
-                    } else {
-                        // Mix stereo/multi-channel to mono by averaging
-                        data.chunks(channels)
-                            .flat_map(|frame| {
-                                let avg = frame.iter().sum::<f32>() / channels as f32;
-                                let i = (avg.clamp(-1.0, 1.0) * i16::MAX as f32) as i16;
-                                i.to_le_bytes()
-                            })
-                            .collect()
-                    };
+                    let bytes: Vec<u8> = data
+                        .chunks(channels)         // one frame per channel group
+                        .step_by(resample_factor) // decimate to 16 kHz
+                        .flat_map(|frame| {
+                            let mono = if channels == 1 {
+                                frame[0]
+                            } else {
+                                frame.iter().sum::<f32>() / channels as f32
+                            };
+                            let i = (mono.clamp(-1.0, 1.0) * i16::MAX as f32) as i16;
+                            i.to_le_bytes()
+                        })
+                        .collect();
                     let _ = pcm_tx_f32.try_send(bytes);
                 },
                 |err| eprintln!("cpal stream error: {}", err),
@@ -178,17 +180,20 @@ pub async fn start_ptt_session(
             cpal::SampleFormat::I16 => device.build_input_stream(
                 &config,
                 move |data: &[i16], _| {
-                    let bytes: Vec<u8> = if channels == 1 {
-                        data.iter().flat_map(|s| s.to_le_bytes()).collect()
-                    } else {
-                        data.chunks(channels)
-                            .flat_map(|frame| {
+                    let bytes: Vec<u8> = data
+                        .chunks(channels)
+                        .step_by(resample_factor)
+                        .flat_map(|frame| {
+                            let mono = if channels == 1 {
+                                frame[0]
+                            } else {
                                 let avg = frame.iter().map(|s| *s as i32).sum::<i32>()
                                     / channels as i32;
-                                (avg as i16).to_le_bytes()
-                            })
-                            .collect()
-                    };
+                                avg as i16
+                            };
+                            mono.to_le_bytes()
+                        })
+                        .collect();
                     let _ = pcm_tx_clone.try_send(bytes);
                 },
                 |err| eprintln!("cpal stream error: {}", err),
