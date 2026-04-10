@@ -350,7 +350,7 @@ pub async fn start_ptt_session(
                 msg = ws_read.next() => {
                     match msg {
                         Some(Ok(Message::Text(text))) => {
-                            eprintln!("PTT: WS message: {}", text);
+                            eprintln!("PTT: WS text: {}", text);
                             if let Ok(parsed) = serde_json::from_str::<AssemblyAiMessage>(&text) {
                                 match parsed.msg_type.as_str() {
                                     "Turn" => {
@@ -375,8 +375,48 @@ pub async fn start_ptt_session(
                                     }
                                 }
                             } else {
-                                eprintln!("PTT: WS unparsed: {}", text);
+                                eprintln!("PTT: WS unparsed text: {}", text);
                             }
+                        }
+                        Some(Ok(Message::Binary(bytes))) => {
+                            // AssemblyAI v3 may send Turn messages as binary frames
+                            let text = match std::str::from_utf8(&bytes) {
+                                Ok(s) => s.to_string(),
+                                Err(_) => { eprintln!("PTT: WS non-UTF8 binary frame"); continue; }
+                            };
+                            eprintln!("PTT: WS binary: {}", text);
+                            if let Ok(parsed) = serde_json::from_str::<AssemblyAiMessage>(&text) {
+                                match parsed.msg_type.as_str() {
+                                    "Turn" => {
+                                        if let Some(transcript) = parsed.transcript {
+                                            if !transcript.is_empty() {
+                                                if parsed.end_of_turn.unwrap_or(false) {
+                                                    let _ = app_for_ws.emit("stt-final", transcript);
+                                                } else {
+                                                    let _ = app_for_ws.emit("stt-partial", transcript);
+                                                }
+                                            }
+                                        }
+                                    }
+                                    "error" => {
+                                        eprintln!("PTT: AssemblyAI error: {}", text);
+                                        let _ = app_for_ws.emit("stt-error", format!("STT error: {}", text));
+                                        IS_PTT_ACTIVE.store(false, Ordering::SeqCst);
+                                        break;
+                                    }
+                                    other => {
+                                        eprintln!("PTT: WS binary msg type '{}' (ignored)", other);
+                                    }
+                                }
+                            } else {
+                                eprintln!("PTT: WS unparsed binary: {}", text);
+                            }
+                        }
+                        Some(Ok(Message::Close(frame))) => {
+                            let reason = frame.map(|f| format!("{}: {}", f.code, f.reason)).unwrap_or_default();
+                            eprintln!("PTT: WS closed by server during stream: {}", reason);
+                            let _ = app_for_ws.emit("stt-final", "");
+                            break;
                         }
                         Some(Err(e)) => {
                             let _ = app_for_ws.emit("stt-error", format!("WebSocket error: {}", e));
@@ -384,7 +424,7 @@ pub async fn start_ptt_session(
                             break;
                         }
                         None => {
-                            eprintln!("PTT: WS stream closed by server");
+                            eprintln!("PTT: WS stream ended by server");
                             let _ = app_for_ws.emit("stt-final", "");
                             break;
                         }
