@@ -11,6 +11,7 @@
 
 pub mod audio_cue;
 pub mod ptt;
+pub mod tts;
 
 #[cfg(test)]
 mod tests {
