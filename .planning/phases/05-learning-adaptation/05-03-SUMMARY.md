@@ -63,10 +63,36 @@ Completed the Phase 5 learning layer with the user-facing settings/profile scree
 |------|--------|-------------|
 | 1 | 66a480a | feat(05-03): create SettingsScreen.tsx and getSkillProfile IPC wrapper |
 | 2 | fabb07e | feat(05-03): add gear icon + showSettings signal + content swap to SidebarShell |
+| post-checkpoint fix | e992fd1 | fix(05): use camelCase keys for memory IPC — Tauri v2 converts snake_case params |
+
+## Human Verification
+
+All 8 verification tests passed (approved 2026-04-10):
+- DB creation on first launch confirmed
+- First encounter (tier 1) — no degradation notice, interaction recorded
+- Second encounter (tier 2) — degradation notice shown, guidance shorter
+- "Show full steps" override works from tier 2
+- Third encounter (tier 3) — hints-only notice shown
+- Settings screen opens, renders skill profile, closes correctly
+- `npx tsc --noEmit` exits 0
+- `cargo test` — 15/15 Rust tests pass
 
 ## Deviations from Plan
 
-None — plan executed exactly as written.
+### Post-Checkpoint Fix (Rule 1 - Bug)
+
+**1. [Rule 1 - Bug] Fixed camelCase IPC keys for Tauri v2 memory commands**
+- **Found during:** Human verification (post-checkpoint)
+- **Issue:** Tauri v2 IPC automatically converts Rust snake_case parameter names to camelCase on the JavaScript side. The memory IPC calls in `tauri.ts` were using snake_case keys (`raw_intent`, `task_label`) which caused command parameter mismatch.
+- **Fix:** Changed `raw_intent` to `rawIntent` and `task_label` to `taskLabel` in the `invoke()` calls in `tauri.ts`.
+- **Files modified:** `src/lib/tauri.ts`
+- **Verification:** All 8 verification tests passed after fix
+- **Committed in:** e992fd1
+
+---
+
+**Total deviations:** 1 auto-fixed (1 bug)
+**Impact on plan:** Essential correctness fix — memory IPC calls were silently failing without it. No scope creep.
 
 ## Security Review
 

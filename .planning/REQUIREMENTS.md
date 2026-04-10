@@ -32,9 +32,9 @@
 
 ### Learning & Adaptation
 
-- [ ] **LEARN-01**: Local learning memory tracks task struggles, completions, and knowledge gaps (granular knowledge graph)
-- [ ] **LEARN-02**: Degrading guidance adapts over time — detailed steps on first encounter, shorter on second, hints on third+
-- [ ] **LEARN-03**: High-level skill profiles derived automatically from granular memory data
+- [x] **LEARN-01**: Local learning memory tracks task struggles, completions, and knowledge gaps (granular knowledge graph)
+- [x] **LEARN-02**: Degrading guidance adapts over time — detailed steps on first encounter, shorter on second, hints on third+
+- [x] **LEARN-03**: High-level skill profiles derived automatically from granular memory data
 
 ### Infrastructure
 
@@ -96,9 +96,9 @@
 | VOICE-01 | Phase 3 | Pending |
 | VOICE-02 | Phase 3 | Pending |
 | SCRN-01 | Phase 4 | Complete |
-| LEARN-01 | Phase 5 | Pending |
-| LEARN-02 | Phase 5 | Pending |
-| LEARN-03 | Phase 5 | Pending |
+| LEARN-01 | Phase 5 | Complete |
+| LEARN-02 | Phase 5 | Complete |
+| LEARN-03 | Phase 5 | Complete |
 
 **Coverage:**
 - v1 requirements: 18 total

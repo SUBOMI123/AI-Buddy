@@ -95,9 +95,9 @@ Plans:
   4. All learning data is stored locally — no learning data leaves the device
 **Plans**: 3 plans
 Plans:
-- [ ] 05-01-PLAN.md — Rust memory.rs (DB schema, 4 commands, Rust tests), Cargo.toml (rusqlite 0.39), lib.rs managed state, Worker /classify route
-- [ ] 05-02-PLAN.md — ai.ts tier-aware prompt injection, tauri.ts memory IPC wrappers, SidebarShell.tsx memory integration + degradation notice UI
-- [ ] 05-03-PLAN.md — SettingsScreen.tsx skill profile component, SidebarShell gear icon + content swap, human verification
+- [x] 05-01-PLAN.md — Rust memory.rs (DB schema, 4 commands, Rust tests), Cargo.toml (rusqlite 0.39), lib.rs managed state, Worker /classify route
+- [x] 05-02-PLAN.md — ai.ts tier-aware prompt injection, tauri.ts memory IPC wrappers, SidebarShell.tsx memory integration + degradation notice UI
+- [x] 05-03-PLAN.md — SettingsScreen.tsx skill profile component, SidebarShell gear icon + content swap, human verification
 
 ## Progress
 
@@ -110,4 +110,4 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5
 | 2. Core AI Loop | 0/3 | Planning complete | - |
 | 3. Voice I/O | 0/3 | Planning complete | - |
 | 4. Screen Region Selection | 3/3 | Complete   | 2026-04-10 |
-| 5. Learning & Adaptation | 0/3 | Planning complete | - |
+| 5. Learning & Adaptation | 3/3 | Complete | 2026-04-10 |
