@@ -1,4 +1,5 @@
 import { createSignal, onMount, onCleanup, Show } from "solid-js";
+import { X } from "lucide-solid";
 import { DragHandle } from "./DragHandle";
 import { TextInput } from "./TextInput";
 import { EmptyState, NoPermissionState } from "./EmptyState";
@@ -16,11 +17,18 @@ import {
   onSttError,
   getTtsEnabled,
   playTts,
+  openRegionSelect,
+  closeRegionSelect,
+  captureRegion,
+  onRegionSelected,
+  onRegionCancelled,
+  type RegionCoords,
 } from "../lib/tauri";
 import { streamGuidance } from "../lib/ai";
 
 // D-08: "listening" added for PTT active state
-type ContentState = "empty" | "loading" | "streaming" | "error" | "listening";
+// Phase 4: "selecting" added for region selection in-progress state
+type ContentState = "empty" | "loading" | "streaming" | "error" | "listening" | "selecting";
 
 export function SidebarShell() {
   const [needsPermission, setNeedsPermission] = createSignal(true);
@@ -40,12 +48,19 @@ export function SidebarShell() {
   // Phase 3: PTT listening indicator — MUST be declared before onMount (D-08)
   const [isListening, setIsListening] = createSignal(false);
 
+  // Phase 4: Region selection (D-03 to D-08)
+  const [selectedRegion, setSelectedRegion] = createSignal<RegionCoords | null>(null);
+  // Thumbnail is the base64 JPEG of the selected crop, captured immediately after region-selected fires
+  const [thumbnailB64, setThumbnailB64] = createSignal<string | null>(null);
+
   let inputRef: HTMLInputElement | undefined;
   let unlistenOverlay: (() => void) | undefined;
   let unlistenPttStart: (() => void) | undefined;
   let unlistenSttPartial: (() => void) | undefined;
   let unlistenSttFinal: (() => void) | undefined;
   let unlistenSttError: (() => void) | undefined;
+  let unlistenRegionSelected: (() => void) | undefined;
+  let unlistenRegionCancelled: (() => void) | undefined;
   let abortController: AbortController | null = null;
 
   onMount(async () => {
@@ -109,6 +124,31 @@ export function SidebarShell() {
       setContentState("empty");    // D-26: return to idle state
       // D-25: inputValue is NOT cleared — preserve user's partial text
     });
+
+    // Phase 4: Region selection listeners
+    // region-selected fires when user finishes drawing in the region-select window
+    unlistenRegionSelected = await onRegionSelected(async (coords) => {
+      // Close the overlay window — sidebar becomes visible again (D-02, D-03)
+      await closeRegionSelect();
+      setSelectedRegion(coords);
+      setContentState("empty");  // return sidebar to idle with thumbnail visible
+
+      // Capture thumbnail immediately so user sees what Claude will see (D-05)
+      try {
+        const b64 = await captureRegion(coords);
+        setThumbnailB64(b64);
+      } catch {
+        // Thumbnail capture failed — still allow submission with stored coords
+        setThumbnailB64(null);
+      }
+    });
+
+    // region-cancelled fires on Esc or too-small drag (D-10)
+    unlistenRegionCancelled = await onRegionCancelled(async () => {
+      await closeRegionSelect();
+      setContentState("empty");  // restore sidebar (Constraint 6: sidebar MUST reappear)
+      // Do NOT set selectedRegion — region stays null, fallback to full-screen (D-04)
+    });
   });
 
   onCleanup(() => {
@@ -117,6 +157,8 @@ export function SidebarShell() {
     unlistenSttPartial?.();
     unlistenSttFinal?.();
     unlistenSttError?.();
+    unlistenRegionSelected?.();
+    unlistenRegionCancelled?.();
     abortController?.abort();
   });
 
@@ -129,6 +171,18 @@ export function SidebarShell() {
   const handlePermissionDismissed = () => {
     setNeedsPermission(false);
     setPermissionDenied(true);
+  };
+
+  // D-01, D-02: Crop button handler — hide sidebar, open overlay
+  const handleRegionSelect = async () => {
+    setContentState("selecting");  // signals sidebar to hide
+    await openRegionSelect();
+  };
+
+  // D-06, D-07: Clear button handler — reset region, fall back to full-screen
+  const handleClearRegion = () => {
+    setSelectedRegion(null);
+    setThumbnailB64(null);
   };
 
   const submitIntent = async (intent: string) => {
@@ -146,15 +200,26 @@ export function SidebarShell() {
     setContentState("loading");
     setLastIntent(intent);
 
-    // 1. Capture screenshot (D-01: on every submit)
+    // 1. Capture screenshot or region (D-04, D-08)
     let screenshot: string | null = null;
+    const region = selectedRegion();
     try {
-      screenshot = await captureScreenshot();
+      if (region) {
+        // D-08: only crop sent to Claude when region is set
+        screenshot = await captureRegion(region);
+      } else {
+        // D-04: full-screen fallback when no region selected
+        screenshot = await captureScreenshot();
+      }
     } catch {
       // D-04, D-12: fall back to text-only with notice
       screenshot = null;
       setScreenshotFailed(true);
     }
+
+    // D-07: region resets after every submit — each question starts fresh
+    setSelectedRegion(null);
+    setThumbnailB64(null);
 
     // 2. Get signed auth token
     let token: string;
@@ -333,6 +398,76 @@ export function SidebarShell() {
           "flex-shrink": "0",
         }}
       >
+        {/* Phase 4 D-05, D-06: Region thumbnail preview — shown when region is set */}
+        <Show when={selectedRegion() !== null && thumbnailB64() !== null}>
+          <div
+            style={{
+              background: "var(--color-surface-secondary)",
+              "border-radius": "var(--radius-md)",
+              padding: "var(--space-sm)",
+              "margin-bottom": "var(--space-sm)",
+              position: "relative",
+              animation: "thumbnailFadeIn var(--transition-fast) ease forwards",
+            }}
+          >
+            <style>{`
+              @keyframes thumbnailFadeIn {
+                from { opacity: 0; }
+                to { opacity: 1; }
+              }
+            `}</style>
+
+            {/* X clear button — top-right, absolute positioned (D-06) */}
+            <button
+              onClick={handleClearRegion}
+              aria-label="Clear selected region"
+              style={{
+                position: "absolute",
+                top: "var(--space-xs)",
+                right: "var(--space-xs)",
+                border: "none",
+                background: "transparent",
+                cursor: "pointer",
+                color: "var(--color-text-secondary)",
+                "min-height": "44px",
+                "min-width": "44px",
+                display: "flex",
+                "align-items": "center",
+                "justify-content": "center",
+                padding: "0",
+                "z-index": "1",
+              }}
+            >
+              <X size={12} />
+            </button>
+
+            {/* Thumbnail image */}
+            <img
+              src={`data:image/jpeg;base64,${thumbnailB64()}`}
+              alt="Selected region preview"
+              style={{
+                width: "100%",
+                "max-height": "80px",
+                "object-fit": "cover",
+                "border-radius": "var(--radius-sm)",
+                display: "block",
+              }}
+            />
+
+            {/* Dimensions label (UI-SPEC: physical pixels from coords) */}
+            <div
+              style={{
+                "font-size": "var(--font-size-label)",
+                color: "var(--color-text-secondary)",
+                "margin-top": "var(--space-xs)",
+                "text-align": "center",
+              }}
+            >
+              {selectedRegion()!.width} × {selectedRegion()!.height}
+            </div>
+          </div>
+        </Show>
+
         <TextInput
           value={inputValue}
           setValue={setInputValue}
@@ -341,6 +476,8 @@ export function SidebarShell() {
           listening={isListening()}
           sttError={sttError()}
           ref={(el) => { inputRef = el; }}
+          onRegionSelect={handleRegionSelect}
+          regionActive={selectedRegion() !== null}
         />
       </div>
     </div>
