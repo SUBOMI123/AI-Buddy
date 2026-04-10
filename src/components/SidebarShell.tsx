@@ -64,6 +64,12 @@ export function SidebarShell() {
     }
 
     const unlisten = await onOverlayShown(() => {
+      // Reset to idle on every open so stale error/loading states don't persist
+      setContentState("empty");
+      setErrorMessage("");
+      setStreamingText("");
+      abortController?.abort();
+      abortController = null;
       if (inputRef && !needsPermission()) {
         inputRef.focus();
       }
