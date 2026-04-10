@@ -111,51 +111,79 @@ pub async fn start_ptt_session(
     // PCM frame channel: std::thread (cpal) → tokio task (WebSocket sender)
     let (pcm_tx, mut pcm_rx) = mpsc::channel::<Vec<u8>>(32);
 
+    // Oneshot channel: cpal thread sends actual sample_rate to async context
+    // so the WebSocket URL uses the correct rate (avoids hardcoding 16000).
+    let (sr_tx, sr_rx) = tokio::sync::oneshot::channel::<Result<u32, String>>();
+
     // --- std::thread for cpal mic capture (T-03-02: Stream is !Send on macOS) ---
     let pcm_tx_clone = pcm_tx.clone();
+    let app_for_cpal = app.clone();
     std::thread::spawn(move || {
         let host = cpal::default_host();
         let device = match host.default_input_device() {
             Some(d) => d,
             None => {
-                eprintln!("No input device available");
+                let _ = sr_tx.send(Err("No microphone available".to_string()));
                 return;
             }
         };
 
-        // Force 16 kHz mono — matches AssemblyAI pcm_s16le expectation.
-        // macOS CoreAudio supports 16 kHz natively for most input devices.
-        // Do NOT use default_input_config(): it typically returns 48 kHz
-        // stereo f32 on macOS, which AssemblyAI cannot recognise.
-        // cpal 0.17: SampleRate = u32, ChannelCount = u16
-        let config = cpal::StreamConfig {
-            channels: 1u16,
-            sample_rate: 16000u32,
-            buffer_size: cpal::BufferSize::Default,
+        let supported = match device.default_input_config() {
+            Ok(c) => c,
+            Err(e) => {
+                let _ = sr_tx.send(Err(format!("Mic config error: {}", e)));
+                return;
+            }
         };
 
-        // Capture as f32 (always supported by CoreAudio) and convert to
-        // i16 little-endian PCM before sending to the WebSocket.
-        let stream = device.build_input_stream(
-            &config,
-            move |data: &[f32], _| {
-                let bytes: Vec<u8> = data
-                    .iter()
-                    .flat_map(|s| {
-                        let i = (s.clamp(-1.0, 1.0) * i16::MAX as f32) as i16;
-                        i.to_le_bytes()
-                    })
-                    .collect();
-                let _ = pcm_tx_clone.try_send(bytes);
-            },
-            |err| eprintln!("cpal stream error: {}", err),
-            None,
-        );
+        let sample_rate_val = supported.sample_rate();
+        let sample_format = supported.sample_format();
+        let config: cpal::StreamConfig = supported.into();
+
+        // Unblock the async WebSocket task — it can now connect with correct rate.
+        let _ = sr_tx.send(Ok(sample_rate_val));
+
+        // Build stream handling the two common formats on macOS.
+        let pcm_tx_f32 = pcm_tx_clone.clone();
+        let stream = match sample_format {
+            cpal::SampleFormat::F32 => device.build_input_stream(
+                &config,
+                move |data: &[f32], _| {
+                    let bytes: Vec<u8> = data
+                        .iter()
+                        .flat_map(|s| {
+                            let i = (s.clamp(-1.0, 1.0) * i16::MAX as f32) as i16;
+                            i.to_le_bytes()
+                        })
+                        .collect();
+                    let _ = pcm_tx_f32.try_send(bytes);
+                },
+                |err| eprintln!("cpal stream error: {}", err),
+                None,
+            ),
+            cpal::SampleFormat::I16 => device.build_input_stream(
+                &config,
+                move |data: &[i16], _| {
+                    let bytes: Vec<u8> = data.iter().flat_map(|s| s.to_le_bytes()).collect();
+                    let _ = pcm_tx_clone.try_send(bytes);
+                },
+                |err| eprintln!("cpal stream error: {}", err),
+                None,
+            ),
+            fmt => {
+                eprintln!("Unsupported mic sample format: {:?}", fmt);
+                IS_PTT_ACTIVE.store(false, Ordering::SeqCst);
+                let _ = app_for_cpal.emit("stt-error", "Unsupported microphone format");
+                return;
+            }
+        };
 
         let stream = match stream {
             Ok(s) => s,
             Err(e) => {
                 eprintln!("Failed to build input stream: {}", e);
+                IS_PTT_ACTIVE.store(false, Ordering::SeqCst);
+                let _ = app_for_cpal.emit("stt-error", format!("Mic error: {}", e));
                 return;
             }
         };
@@ -169,12 +197,27 @@ pub async fn start_ptt_session(
         // stream drops here, mic capture stops
     });
 
+    // Await actual sample_rate from the cpal thread before connecting WebSocket.
+    let sample_rate = match sr_rx.await {
+        Ok(Ok(sr)) => sr,
+        Ok(Err(e)) => {
+            IS_PTT_ACTIVE.store(false, Ordering::SeqCst);
+            let _ = app.emit("stt-error", e);
+            return Ok(());
+        }
+        Err(_) => {
+            IS_PTT_ACTIVE.store(false, Ordering::SeqCst);
+            let _ = app.emit("stt-error", "Mic initialisation failed");
+            return Ok(());
+        }
+    };
+
     // --- Tokio task: WebSocket connection to AssemblyAI ---
     let app_for_ws = app.clone();
     tokio::spawn(async move {
         let ws_url = format!(
-            "wss://streaming.assemblyai.com/v3/ws?token={}&sample_rate=16000&encoding=pcm_s16le",
-            token
+            "wss://streaming.assemblyai.com/v3/ws?token={}&sample_rate={}&encoding=pcm_s16le",
+            token, sample_rate
         );
 
         let (ws_stream, _) = match connect_async(&ws_url).await {
@@ -204,7 +247,6 @@ pub async fn start_ptt_session(
                     _ = stop_rx_clone.changed() => {
                         if *stop_rx_clone.borrow() {
                             // T-03-03: Send AssemblyAI v3 terminate message before closing
-                            // v3 format: {"type":"Terminate"} (NOT v2 {"terminate_session":true})
                             let terminate = r#"{"type":"Terminate"}"#;
                             let _ = ws_write.send(Message::Text(terminate.to_string().into())).await;
                             let _ = ws_write.close().await;
@@ -216,18 +258,23 @@ pub async fn start_ptt_session(
         });
 
         // Read loop: emit Tauri events for transcript messages
-        // 30-second session timeout (T-03-03: auto-close if session exceeds limit)
+        // 30-second session timeout (T-03-03)
         let deadline = tokio::time::Instant::now() + std::time::Duration::from_secs(30);
 
         loop {
             tokio::select! {
                 _ = tokio::time::sleep_until(deadline) => {
-                    // Session timeout — stop silently
                     IS_PTT_ACTIVE.store(false, Ordering::SeqCst);
+                    // Reset UI — timeout counts as end of session
+                    let _ = app_for_ws.emit("stt-final", "");
                     break;
                 }
                 _ = stop_rx.changed() => {
-                    if *stop_rx.borrow() { break; }
+                    if *stop_rx.borrow() {
+                        // PTT released — reset isListening in frontend
+                        let _ = app_for_ws.emit("stt-final", "");
+                        break;
+                    }
                 }
                 msg = ws_read.next() => {
                     match msg {
