@@ -245,7 +245,7 @@ pub async fn start_ptt_session(
     let app_for_ws = app.clone();
     tokio::spawn(async move {
         let ws_url = format!(
-            "wss://streaming.assemblyai.com/v3/ws?token={}&sample_rate={}&encoding=pcm_s16le&speech_model=nano",
+            "wss://streaming.assemblyai.com/v3/ws?token={}&sample_rate={}&encoding=pcm_s16le&speech_model=universal-streaming-english",
             token, sample_rate
         );
 
