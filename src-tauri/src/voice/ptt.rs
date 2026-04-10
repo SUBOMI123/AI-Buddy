@@ -139,23 +139,37 @@ pub async fn start_ptt_session(
         let sample_rate_val = supported.sample_rate();
         let sample_format = supported.sample_format();
         let config: cpal::StreamConfig = supported.into();
+        let channels = config.channels as usize;
+
+        eprintln!("PTT: mic config — {}Hz, {} ch, {:?}", sample_rate_val, channels, sample_format);
 
         // Unblock the async WebSocket task — it can now connect with correct rate.
         let _ = sr_tx.send(Ok(sample_rate_val));
 
         // Build stream handling the two common formats on macOS.
+        // Mix multi-channel audio to mono — AssemblyAI expects mono PCM.
         let pcm_tx_f32 = pcm_tx_clone.clone();
         let stream = match sample_format {
             cpal::SampleFormat::F32 => device.build_input_stream(
                 &config,
                 move |data: &[f32], _| {
-                    let bytes: Vec<u8> = data
-                        .iter()
-                        .flat_map(|s| {
-                            let i = (s.clamp(-1.0, 1.0) * i16::MAX as f32) as i16;
-                            i.to_le_bytes()
-                        })
-                        .collect();
+                    let bytes: Vec<u8> = if channels == 1 {
+                        data.iter()
+                            .flat_map(|s| {
+                                let i = (s.clamp(-1.0, 1.0) * i16::MAX as f32) as i16;
+                                i.to_le_bytes()
+                            })
+                            .collect()
+                    } else {
+                        // Mix stereo/multi-channel to mono by averaging
+                        data.chunks(channels)
+                            .flat_map(|frame| {
+                                let avg = frame.iter().sum::<f32>() / channels as f32;
+                                let i = (avg.clamp(-1.0, 1.0) * i16::MAX as f32) as i16;
+                                i.to_le_bytes()
+                            })
+                            .collect()
+                    };
                     let _ = pcm_tx_f32.try_send(bytes);
                 },
                 |err| eprintln!("cpal stream error: {}", err),
@@ -164,7 +178,17 @@ pub async fn start_ptt_session(
             cpal::SampleFormat::I16 => device.build_input_stream(
                 &config,
                 move |data: &[i16], _| {
-                    let bytes: Vec<u8> = data.iter().flat_map(|s| s.to_le_bytes()).collect();
+                    let bytes: Vec<u8> = if channels == 1 {
+                        data.iter().flat_map(|s| s.to_le_bytes()).collect()
+                    } else {
+                        data.chunks(channels)
+                            .flat_map(|frame| {
+                                let avg = frame.iter().map(|s| *s as i32).sum::<i32>()
+                                    / channels as i32;
+                                (avg as i16).to_le_bytes()
+                            })
+                            .collect()
+                    };
                     let _ = pcm_tx_clone.try_send(bytes);
                 },
                 |err| eprintln!("cpal stream error: {}", err),
@@ -220,14 +244,17 @@ pub async fn start_ptt_session(
             token, sample_rate
         );
 
+        eprintln!("PTT: connecting WebSocket — {}", ws_url);
         let (ws_stream, _) = match connect_async(&ws_url).await {
             Ok(conn) => conn,
             Err(e) => {
                 IS_PTT_ACTIVE.store(false, Ordering::SeqCst);
                 let _ = app_for_ws.emit("stt-error", format!("WebSocket connection failed: {}", e));
+                eprintln!("PTT: WebSocket connect failed: {}", e);
                 return;
             }
         };
+        eprintln!("PTT: WebSocket connected");
 
         let (mut ws_write, mut ws_read) = ws_stream.split();
 
@@ -271,7 +298,7 @@ pub async fn start_ptt_session(
                 }
                 _ = stop_rx.changed() => {
                     if *stop_rx.borrow() {
-                        // PTT released — reset isListening in frontend
+                        eprintln!("PTT: stop signal received, resetting UI");
                         let _ = app_for_ws.emit("stt-final", "");
                         break;
                     }
@@ -279,16 +306,32 @@ pub async fn start_ptt_session(
                 msg = ws_read.next() => {
                     match msg {
                         Some(Ok(Message::Text(text))) => {
+                            eprintln!("PTT: WS message: {}", text);
                             if let Ok(parsed) = serde_json::from_str::<AssemblyAiMessage>(&text) {
-                                if parsed.msg_type == "Turn" {
-                                    if let Some(transcript) = parsed.transcript {
-                                        if parsed.end_of_turn.unwrap_or(false) {
-                                            let _ = app_for_ws.emit("stt-final", transcript);
-                                        } else {
-                                            let _ = app_for_ws.emit("stt-partial", transcript);
+                                match parsed.msg_type.as_str() {
+                                    "Turn" => {
+                                        if let Some(transcript) = parsed.transcript {
+                                            if !transcript.is_empty() {
+                                                if parsed.end_of_turn.unwrap_or(false) {
+                                                    let _ = app_for_ws.emit("stt-final", transcript);
+                                                } else {
+                                                    let _ = app_for_ws.emit("stt-partial", transcript);
+                                                }
+                                            }
                                         }
                                     }
+                                    "error" => {
+                                        eprintln!("PTT: AssemblyAI error: {}", text);
+                                        let _ = app_for_ws.emit("stt-error", format!("STT error: {}", text));
+                                        IS_PTT_ACTIVE.store(false, Ordering::SeqCst);
+                                        break;
+                                    }
+                                    other => {
+                                        eprintln!("PTT: WS msg type '{}' (ignored)", other);
+                                    }
                                 }
+                            } else {
+                                eprintln!("PTT: WS unparsed: {}", text);
                             }
                         }
                         Some(Err(e)) => {
