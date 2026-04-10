@@ -25,6 +25,10 @@ export async function getInstallationToken(): Promise<string> {
   return invoke<string>("cmd_get_token");
 }
 
+export async function captureScreenshot(): Promise<string> {
+  return invoke<string>("capture_screenshot");
+}
+
 export function onOverlayShown(callback: () => void) {
   return listen("overlay-shown", callback);
 }
