@@ -83,6 +83,10 @@ pub async fn start_ptt_session(
         return Ok(()); // Key repeat — silently ignore
     }
 
+    // Signal frontend immediately so mic indicator appears on key press,
+    // not on first transcript (which can take 1-2s of speech).
+    let _ = app.emit("ptt-start", ());
+
     // Audio cue: PTT start click
     if audio_cues_enabled {
         crate::voice::audio_cue::play_start_cue();
@@ -119,19 +123,29 @@ pub async fn start_ptt_session(
             }
         };
 
-        let config = match device.default_input_config() {
-            Ok(c) => c,
-            Err(e) => {
-                eprintln!("Failed to get input config: {}", e);
-                return;
-            }
+        // Force 16 kHz mono — matches AssemblyAI pcm_s16le expectation.
+        // macOS CoreAudio supports 16 kHz natively for most input devices.
+        // Do NOT use default_input_config(): it typically returns 48 kHz
+        // stereo f32 on macOS, which AssemblyAI cannot recognise.
+        // cpal 0.17: SampleRate = u32, ChannelCount = u16
+        let config = cpal::StreamConfig {
+            channels: 1u16,
+            sample_rate: 16000u32,
+            buffer_size: cpal::BufferSize::Default,
         };
 
+        // Capture as f32 (always supported by CoreAudio) and convert to
+        // i16 little-endian PCM before sending to the WebSocket.
         let stream = device.build_input_stream(
-            &config.into(),
-            move |data: &[i16], _| {
-                // Convert i16 samples to raw bytes (little-endian PCM)
-                let bytes: Vec<u8> = data.iter().flat_map(|s| s.to_le_bytes()).collect();
+            &config,
+            move |data: &[f32], _| {
+                let bytes: Vec<u8> = data
+                    .iter()
+                    .flat_map(|s| {
+                        let i = (s.clamp(-1.0, 1.0) * i16::MAX as f32) as i16;
+                        i.to_le_bytes()
+                    })
+                    .collect();
                 let _ = pcm_tx_clone.try_send(bytes);
             },
             |err| eprintln!("cpal stream error: {}", err),

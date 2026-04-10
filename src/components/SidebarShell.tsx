@@ -10,6 +10,7 @@ import {
   onOverlayShown,
   captureScreenshot,
   getInstallationToken,
+  onPttStart,
   onSttPartial,
   onSttFinal,
   onSttError,
@@ -40,6 +41,7 @@ export function SidebarShell() {
 
   let inputRef: HTMLInputElement | undefined;
   let unlistenOverlay: (() => void) | undefined;
+  let unlistenPttStart: (() => void) | undefined;
   let unlistenSttPartial: (() => void) | undefined;
   let unlistenSttFinal: (() => void) | undefined;
   let unlistenSttError: (() => void) | undefined;
@@ -77,8 +79,13 @@ export function SidebarShell() {
     unlistenOverlay = unlisten;
 
     // Phase 3: STT event listeners
+    // ptt-start fires immediately on key press so mic indicator appears at once
+    unlistenPttStart = await onPttStart(() => {
+      setIsListening(true);
+      setSttError("");
+    });
+
     // D-05, D-06, D-07: Partial transcripts replace field value in real-time
-    // D-08: setIsListening(true) on first partial — shows mic indicator
     unlistenSttPartial = await onSttPartial((transcript) => {
       setInputValue(transcript);  // D-07: full partial (not delta) — overwrite
       setSttError("");             // clear any previous error on new speech
@@ -105,6 +112,7 @@ export function SidebarShell() {
 
   onCleanup(() => {
     unlistenOverlay?.();
+    unlistenPttStart?.();
     unlistenSttPartial?.();
     unlistenSttFinal?.();
     unlistenSttError?.();

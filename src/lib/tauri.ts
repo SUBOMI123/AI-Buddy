@@ -73,6 +73,10 @@ export async function playTts(text: string): Promise<void> {
 
 // STT Tauri event listeners
 // Used by SidebarShell to receive transcript events from the Rust PTT pipeline
+export function onPttStart(callback: () => void) {
+  return listen("ptt-start", () => callback());
+}
+
 export function onSttPartial(callback: (transcript: string) => void) {
   return listen<string>("stt-partial", (event) => callback(event.payload));
 }

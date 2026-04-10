@@ -28,10 +28,6 @@ export function TextInput(props: TextInputProps) {
   };
 
   // D-08: Listening indicator styles — pulsing border ring when PTT is active
-  const borderColor = () => props.listening
-    ? "var(--color-accent)"
-    : "transparent";
-
   const boxShadow = () => props.listening
     ? "0 0 0 2px var(--color-accent)"
     : "none";
