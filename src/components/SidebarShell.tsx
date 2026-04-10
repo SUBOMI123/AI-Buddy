@@ -21,6 +21,9 @@ import {
   captureRegion,
   onRegionSelected,
   onRegionCancelled,
+  prepareGuidanceContext,
+  recordInteraction,
+  getMemoryContext,
   type RegionCoords,
 } from "../lib/tauri";
 import { streamGuidance } from "../lib/ai";
@@ -51,6 +54,13 @@ export function SidebarShell() {
   const [selectedRegion, setSelectedRegion] = createSignal<RegionCoords | null>(null);
   // Thumbnail is the base64 JPEG of the selected crop, captured immediately after region-selected fires
   const [thumbnailB64, setThumbnailB64] = createSignal<string | null>(null);
+
+  // Phase 5: Learning & Adaptation
+  const [currentTier, setCurrentTier] = createSignal<number>(1);
+  // currentTaskLabel getter unused in JSX — stored for potential future rendering (e.g. settings screen)
+  const [_currentTaskLabel, setCurrentTaskLabel] = createSignal<string>("");
+  // showFullStepsOverride getter unused in JSX — setter used by handleShowFullSteps to reset state
+  const [_showFullStepsOverride, setShowFullStepsOverride] = createSignal(false);
 
   let inputRef: HTMLInputElement | undefined;
   let unlistenOverlay: (() => void) | undefined;
@@ -183,7 +193,7 @@ export function SidebarShell() {
     setThumbnailB64(null);
   };
 
-  const submitIntent = async (intent: string) => {
+  const submitIntent = async (intent: string, forceFullSteps = false) => {
     // Clear STT error on new submission
     setSttError("");
 
@@ -197,6 +207,31 @@ export function SidebarShell() {
     setScreenshotFailed(false);
     setContentState("loading");
     setLastIntent(intent);
+
+    // Phase 5: Classify intent + get tier (D-02, D-03)
+    // Force tier 1 if user clicked "Show full steps" (D-04)
+    let ctx = { tier: 1, taskLabel: "", encounterCount: 0 };
+    if (!forceFullSteps) {
+      try {
+        ctx = await prepareGuidanceContext(intent);
+      } catch {
+        // Classification failed — default to tier 1 (full guidance)
+        ctx = { tier: 1, taskLabel: intent.slice(0, 50).replace(/\s+/g, "_").toLowerCase(), encounterCount: 0 };
+      }
+    }
+    setCurrentTier(ctx.tier);
+    setCurrentTaskLabel(ctx.taskLabel);
+    setShowFullStepsOverride(false);
+
+    // Phase 5: Build memory context for tier > 1 (D-08 — only send summary string, never raw rows)
+    let memoryContext: string | undefined;
+    if (ctx.tier > 1) {
+      try {
+        memoryContext = await getMemoryContext();
+      } catch {
+        memoryContext = undefined;
+      }
+    }
 
     // 1. Capture screenshot or region (D-04, D-08)
     let screenshot: string | null = null;
@@ -234,6 +269,9 @@ export function SidebarShell() {
       token,
       screenshot,
       userIntent: intent,
+      tier: ctx.tier,
+      memoryContext,
+      taskLabel: ctx.taskLabel,
       onToken: (text) => {
         if (contentState() === "loading") {
           setContentState("streaming");
@@ -252,6 +290,15 @@ export function SidebarShell() {
         if (ttsEnabled()) {
           playTts(streamingText()).catch(() => {});
         }
+        // Phase 5: Record interaction fire-and-forget (D-01)
+        if (ctx.taskLabel) {
+          recordInteraction(
+            ctx.taskLabel,
+            intent,
+            streamingText(),
+            ctx.tier,
+          ).catch(() => {}); // silent fail — never block the UI
+        }
       },
       signal: abortController.signal,
     });
@@ -265,6 +312,15 @@ export function SidebarShell() {
     const intent = lastIntent();
     if (intent) {
       submitIntent(intent);
+    }
+  };
+
+  // Phase 5 D-04: "Show full steps" re-runs at tier 1, bypassing memory
+  const handleShowFullSteps = () => {
+    const intent = lastIntent();
+    if (intent) {
+      setShowFullStepsOverride(true);
+      submitIntent(intent, true); // forceFullSteps = true
     }
   };
 
@@ -320,6 +376,43 @@ export function SidebarShell() {
             }}
           >
             Screen capture unavailable -- guidance may be less specific
+          </div>
+        </Show>
+
+        {/* Phase 5 D-04: Degradation notice — shown when tier > 1 and streaming/after streaming */}
+        <Show when={!needsPermission() && currentTier() > 1 && (contentState() === "streaming" || contentState() === "empty") && streamingText().length > 0}>
+          <div
+            style={{
+              "font-size": "var(--font-size-label)",
+              "line-height": "var(--line-height-label)",
+              color: "var(--color-text-secondary)",
+              padding: "var(--space-xs) 0 var(--space-sm) 0",
+              display: "flex",
+              gap: "var(--space-xs)",
+              "align-items": "center",
+              "flex-wrap": "wrap",
+            }}
+          >
+            <span>
+              You've done this before — showing {currentTier() === 2 ? "summary" : "hints"}.
+            </span>
+            <button
+              onClick={handleShowFullSteps}
+              style={{
+                border: "none",
+                background: "transparent",
+                color: "var(--color-accent)",
+                "font-size": "var(--font-size-label)",
+                cursor: "pointer",
+                padding: "0",
+                "text-decoration": "underline",
+                "min-height": "44px",
+                display: "inline-flex",
+                "align-items": "center",
+              }}
+            >
+              Show full steps
+            </button>
           </div>
         </Show>
 
