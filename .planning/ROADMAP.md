@@ -15,7 +15,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 - [ ] **Phase 1: Infrastructure & App Shell** - Cloudflare Worker proxy, Tauri tray app, overlay, screen capture permissions validated
 - [ ] **Phase 2: Core AI Loop** - Text intent → screenshot → streaming Claude guidance; first working end-to-end flow
 - [ ] **Phase 3: Voice I/O** - Push-to-talk STT and TTS output for eyes-on-screen operation
-- [ ] **Phase 4: Screen Region Selection** - Box-select or highlight to focus AI on a specific area
+- [x] **Phase 4: Screen Region Selection** - Box-select or highlight to focus AI on a specific area (completed 2026-04-10)
 - [ ] **Phase 5: Learning & Adaptation** - Local memory, degrading guidance, derived skill profiles
 
 ## Phase Details
@@ -80,8 +80,8 @@ Plans:
 **Plans**: 3 plans
 Plans:
 - [x] 04-01-PLAN.md — Rust capture_region command, window show/hide commands, tauri.conf.json region-select window declaration, lib.rs registration
-- [ ] 04-02-PLAN.md — RegionSelect.tsx overlay component, index.tsx hash routing, tauri.ts IPC wrappers
-- [ ] 04-03-PLAN.md — SidebarShell region state machine, TextInput Crop button, thumbnail preview, human verification
+- [x] 04-02-PLAN.md — RegionSelect.tsx overlay component, index.tsx hash routing, tauri.ts IPC wrappers
+- [x] 04-03-PLAN.md — SidebarShell region state machine, TextInput Crop button, thumbnail preview, human verification
 **UI hint**: yes
 
 ### Phase 5: Learning & Adaptation
@@ -105,5 +105,5 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5
 | 1. Infrastructure & App Shell | 0/3 | Planning complete | - |
 | 2. Core AI Loop | 0/3 | Planning complete | - |
 | 3. Voice I/O | 0/3 | Planning complete | - |
-| 4. Screen Region Selection | 1/3 | In Progress|  |
+| 4. Screen Region Selection | 3/3 | Complete   | 2026-04-10 |
 | 5. Learning & Adaptation | 0/TBD | Not started | - |

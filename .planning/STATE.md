@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: executing
-stopped_at: Completed 04-01-PLAN.md
-last_updated: "2026-04-10T14:17:41.161Z"
+stopped_at: Completed 04-03-PLAN.md
+last_updated: "2026-04-10T15:44:14.734Z"
 last_activity: 2026-04-10
 progress:
   total_phases: 5
-  completed_phases: 3
+  completed_phases: 4
   total_plans: 12
-  completed_plans: 10
-  percent: 83
+  completed_plans: 12
+  percent: 100
 ---
 
 # Project State
@@ -26,7 +26,7 @@ See: .planning/PROJECT.md (updated 2026-04-09)
 ## Current Position
 
 Phase: 04 (screen-region-selection) — EXECUTING
-Plan: 2 of 3
+Plan: 3 of 3
 Status: Ready to execute
 Last activity: 2026-04-10
 
@@ -53,6 +53,7 @@ Progress: [░░░░░░░░░░] 0%
 
 *Updated after each plan completion*
 | Phase 04 P01 | 20 | 4 tasks | 4 files |
+| Phase 04 P03 | 90 | 3 tasks | 5 files |
 
 ## Accumulated Context
 
@@ -66,6 +67,9 @@ Recent decisions affecting current work:
 - Phase 3: Voice pipeline MUST use streaming STT from day one — retrofitting batch → streaming is painful
 - [Phase 04]: xcap Monitor API uses individual width()/height() XCapResult methods, not size() struct — bounds validation uses these directly
 - [Phase 04]: capture_region x/y kept as i32 in Tauri IPC signature for frontend ergonomics; safe-cast to u32 after non-negative validation
+- [Phase 04]: xcap capture_region uses CGDisplayBounds logical point coordinates — scaleFactor multiplication was incorrect and removed from RegionSelect.tsx
+- [Phase 04]: Region confirm/cancel routed through Rust IPC commands to avoid JS suspend race when overlay window loses focus
+- [Phase 04]: Mouse events bound to document.addEventListener in rubber-band overlay for reliable mouseup capture outside element bounds
 
 ### Quick Tasks Completed
 
@@ -85,6 +89,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-04-10T14:17:41.158Z
-Stopped at: Completed 04-01-PLAN.md
+Last session: 2026-04-10T15:44:14.731Z
+Stopped at: Completed 04-03-PLAN.md
 Resume file: None
