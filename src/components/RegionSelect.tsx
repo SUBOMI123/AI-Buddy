@@ -1,4 +1,4 @@
-import { createSignal, Show, onMount } from "solid-js";
+import { createSignal, Show, onMount, onCleanup } from "solid-js";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { emitTo } from "@tauri-apps/api/event";
 import { invoke } from "@tauri-apps/api/core";
@@ -23,11 +23,6 @@ export function RegionSelect() {
   const [drag, setDrag] = createSignal<DragState | null>(null);
   let containerRef: HTMLDivElement | undefined;
 
-  // Pitfall 4: focus root div on mount so Escape key is captured
-  onMount(() => {
-    containerRef?.focus();
-  });
-
   // Derived rect in logical pixels (for CSS positioning during draw)
   const logicalRect = () => {
     const d = drag();
@@ -40,43 +35,20 @@ export function RegionSelect() {
     };
   };
 
-  const onMouseDown = (e: MouseEvent) => {
-    setDrag({
-      startX: e.clientX,
-      startY: e.clientY,
-      endX: e.clientX,
-      endY: e.clientY,
-      dragging: true,
-    });
-  };
-
-  const onMouseMove = (e: MouseEvent) => {
-    const d = drag();
-    if (d?.dragging) {
-      setDrag({ ...d, endX: e.clientX, endY: e.clientY });
-    }
-  };
-
   const cancel = async () => {
     setDrag(null);
-    // Close this window first, then notify the sidebar (emitTo targets overlay window by label)
     await invoke("cmd_close_region_select").catch(() => {});
-    await emitTo("overlay", "region-cancelled", {});
+    await emitTo("overlay", "region-cancelled", {}).catch(() => {});
   };
 
-  const onMouseUp = async () => {
-    const d = drag();
-    if (!d) return;
+  const confirmRegion = async () => {
     const r = logicalRect();
     if (!r || r.w < 10 || r.h < 10) {
-      // Pitfall 6: too small — treat as cancel (D-10)
       await cancel();
       return;
     }
     setDrag(null);
-
     try {
-      // D-09: Convert logical px → physical px before emitting
       const factor = await getCurrentWindow().scaleFactor();
       const coords: RegionCoords = {
         x: Math.round(r.x * factor),
@@ -84,22 +56,58 @@ export function RegionSelect() {
         width: Math.round(r.w * factor),
         height: Math.round(r.h * factor),
       };
-      // Close this window immediately for responsive UX, then notify the sidebar
-      // emitTo("overlay") is required in Tauri v2 — plain emit() only reaches Rust listeners
+      // emitTo("overlay") required in Tauri v2 — plain emit() only reaches Rust listeners
       await invoke("cmd_close_region_select").catch(() => {});
       await emitTo("overlay", "region-selected", coords);
     } catch (err) {
-      console.error("RegionSelect: failed to emit region-selected", err);
+      console.error("RegionSelect: confirmRegion failed", err);
       await cancel();
     }
   };
 
-  const onKeyDown = async (e: KeyboardEvent) => {
-    if (e.key === "Escape") {
-      // D-10: Esc cancels, emits region-cancelled so SidebarShell restores
-      await cancel();
-    }
-  };
+  onMount(() => {
+    containerRef?.focus();
+
+    // Bind to document so events are captured even if cursor leaves the WebView boundary
+    // (on macOS transparent windows, div-level onMouseUp misses releases at screen edges)
+    const handleMouseDown = (e: MouseEvent) => {
+      setDrag({
+        startX: e.clientX,
+        startY: e.clientY,
+        endX: e.clientX,
+        endY: e.clientY,
+        dragging: true,
+      });
+    };
+
+    const handleMouseMove = (e: MouseEvent) => {
+      const d = drag();
+      if (d?.dragging) {
+        setDrag({ ...d, endX: e.clientX, endY: e.clientY });
+      }
+    };
+
+    const handleMouseUp = () => {
+      if (!drag()) return;
+      confirmRegion();
+    };
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") cancel();
+    };
+
+    document.addEventListener("mousedown", handleMouseDown);
+    document.addEventListener("mousemove", handleMouseMove);
+    document.addEventListener("mouseup", handleMouseUp);
+    document.addEventListener("keydown", handleKeyDown);
+
+    onCleanup(() => {
+      document.removeEventListener("mousedown", handleMouseDown);
+      document.removeEventListener("mousemove", handleMouseMove);
+      document.removeEventListener("mouseup", handleMouseUp);
+      document.removeEventListener("keydown", handleKeyDown);
+    });
+  });
 
   return (
     <div
@@ -114,10 +122,6 @@ export function RegionSelect() {
         "user-select": "none",
         outline: "none",
       }}
-      onMouseDown={onMouseDown}
-      onMouseMove={onMouseMove}
-      onMouseUp={onMouseUp}
-      onKeyDown={onKeyDown}
     >
       {/* Instruction text — hidden during drag (UI-SPEC) */}
       <Show when={!drag()}>
