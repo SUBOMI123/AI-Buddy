@@ -152,6 +152,7 @@ app.post('/chat', async (c) => {
     body: JSON.stringify({
       model: body.model ?? 'claude-3-5-sonnet-20241022',
       messages: body.messages,
+      system: body.system,
       max_tokens: Math.min(Number(body.max_tokens) || 4096, 4096),
       stream: true,
     }),
