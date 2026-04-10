@@ -7,6 +7,8 @@ mod tray;
 mod voice;
 mod window;
 
+use tauri::Manager;
+
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
@@ -33,6 +35,10 @@ pub fn run() {
             window::cmd_confirm_region,
             window::cmd_cancel_region,
             voice::tts::cmd_play_tts,
+            memory::cmd_prepare_guidance_context,
+            memory::cmd_record_interaction,
+            memory::cmd_get_memory_context,
+            memory::cmd_get_skill_profile,
         ])
         .setup(|app| {
             // Hide from macOS Dock and Cmd+Tab (per FOUND-01, INFRA-02)
@@ -54,6 +60,11 @@ pub fn run() {
             // Register PTT shortcut (Ctrl+Shift+V by default, configurable via preferences)
             shortcut::register_ptt_shortcut(app.handle())
                 .map_err(|e| Box::new(std::io::Error::new(std::io::ErrorKind::Other, e.to_string())))?;
+
+            // Phase 5: Initialize learning memory DB (D-07)
+            let conn = memory::open_db(app.handle())
+                .map_err(|e| Box::new(std::io::Error::new(std::io::ErrorKind::Other, e.to_string())))?;
+            app.handle().manage(memory::MemoryDb(std::sync::Mutex::new(conn)));
 
             Ok(())
         })

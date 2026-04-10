@@ -174,6 +174,67 @@ app.post('/chat', async (c) => {
   });
 });
 
+// Task classification endpoint — classifies user intent into a canonical snake_case label (D-02)
+// Uses claude-haiku-4-5 for cost efficiency. Returns { label } always (never 5xx).
+const CLASSIFY_SYSTEM_PROMPT =
+  'You are a task classifier. Respond with ONLY a snake_case label (2-4 words, underscores only, no spaces, no punctuation). Extract the core task the user wants to perform. Make it app-agnostic. Examples: "I want to export this as a PDF" → export_pdf, "How do I create a pivot table" → create_pivot_table, "I need to insert a table" → insert_table, "rename this layer" → rename_layer';
+
+app.post('/classify', async (c) => {
+  let body: { intent?: unknown };
+  try {
+    body = await c.req.json();
+  } catch {
+    return c.json({ error: 'Invalid JSON body' }, 400);
+  }
+
+  // T-05-02: Validate intent — non-empty string, max 500 chars
+  const intent = typeof body.intent === 'string' ? body.intent.trim() : '';
+  if (!intent) {
+    return c.json({ error: 'intent must be a non-empty string' }, 400);
+  }
+  if (intent.length > 500) {
+    return c.json({ error: 'intent must be 500 characters or fewer' }, 400);
+  }
+
+  try {
+    const response = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': c.env.ANTHROPIC_API_KEY,
+        'anthropic-version': '2023-06-01',
+      },
+      body: JSON.stringify({
+        model: 'claude-haiku-4-5',
+        system: CLASSIFY_SYSTEM_PROMPT,
+        messages: [{ role: 'user', content: `Intent: ${intent}` }],
+        max_tokens: 20,
+        stream: false,
+      }),
+    });
+
+    if (!response.ok) {
+      console.error('Anthropic classify call returned', response.status);
+      return c.json({ label: 'unknown_task' });
+    }
+
+    const data = await response.json<{ content: Array<{ type: string; text: string }> }>();
+    const rawLabel = data?.content?.[0]?.text ?? '';
+
+    // Sanitise: lowercase, replace non-[a-z0-9_] with _, truncate to 50 chars
+    const label = rawLabel
+      .trim()
+      .toLowerCase()
+      .replace(/[^a-z0-9_]/g, '_')
+      .slice(0, 50);
+
+    return c.json({ label: label || 'unknown_task' });
+  } catch (err) {
+    console.error('Classification error:', err);
+    return c.json({ label: 'unknown_task' });
+  }
+});
+
 // STT token endpoint — issues short-lived AssemblyAI streaming token (D-28)
 // Auth middleware applies globally — this route only reached by authenticated clients (T-03-04)
 app.post('/stt', async (c) => {
