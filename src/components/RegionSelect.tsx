@@ -1,8 +1,9 @@
 import { createSignal, Show, onMount, onCleanup } from "solid-js";
-import { getCurrentWindow } from "@tauri-apps/api/window";
 import { invoke } from "@tauri-apps/api/core";
 
-// RegionCoords uses physical pixel coordinates — xcap expects physical pixels (D-09)
+// RegionCoords uses logical point coordinates — xcap's capture_region uses CGDisplayBounds
+// (logical points) for bounds checking and CGWindowListCreateImage (logical CGRect).
+// Do NOT multiply by scaleFactor — xcap handles physical pixel mapping internally. (D-09)
 export interface RegionCoords {
   x: number;
   y: number;
@@ -48,14 +49,15 @@ export function RegionSelect() {
     }
     setDrag(null);
     try {
-      const factor = await getCurrentWindow().scaleFactor();
-      // Rust hides the window and emits region-selected to all windows atomically,
-      // avoiding the JS-suspend-on-hide race condition
+      // Send logical point coordinates — xcap uses CGDisplayBounds (logical points) for
+      // bounds validation and CGWindowListCreateImage (logical CGRect) for capture.
+      // Multiplying by scaleFactor here would send physical pixels, which exceed the
+      // logical monitor dimensions and trigger xcap's bounds check error. (D-09)
       await invoke("cmd_confirm_region", {
-        x: Math.round(r.x * factor),
-        y: Math.round(r.y * factor),
-        width: Math.round(r.w * factor),
-        height: Math.round(r.h * factor),
+        x: Math.round(r.x),
+        y: Math.round(r.y),
+        width: Math.round(r.w),
+        height: Math.round(r.h),
       });
     } catch (err) {
       console.error("RegionSelect: confirmRegion failed", err);
