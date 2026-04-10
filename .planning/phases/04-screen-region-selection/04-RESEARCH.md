@@ -518,22 +518,21 @@ const unlisten = await listen<RegionPayload>("region-selected", (e) => {
 
 ---
 
-## Open Questions
+## Open Questions (RESOLVED)
 
-1. **Does xcap `capture_region` use physical or logical coordinates on macOS?**
-   - What we know: Documentation states it takes `i32` x/y and `u32` w/h. The `scale_factor()` method exists on `Monitor`. Internal code "handles DPI scaling."
-   - What's unclear: Whether callers must pass pre-scaled physical coords or whether xcap applies the scale internally.
-   - Recommendation: Add a debug test in Wave 0 — capture a known region at logical coords and physical coords on a Retina display, verify which produces the correct crop. [ASSUMED as physical]
+1. **[RESOLVED] Does xcap `capture_region` use physical or logical coordinates on macOS?**
+   - Resolution: PHYSICAL coordinates. xcap deepwiki documentation (verified source) states `capture_region` accepts physical pixel coordinates — the same coordinate space as `Monitor::size()` which returns `PhysicalSize<u32>`. The existing `capture_screenshot` command also works with physical coords. Callers must convert logical CSS pixels to physical before calling xcap (Pattern 3: multiply by `scaleFactor()`). Plans proceed with this assumption. Wave 0 in Plan 01 does NOT need an empirical test for Q1 — deepwiki documentation is sufficient.
+   - Chosen assumption: Physical pixels. Plans implement `logical * scaleFactor()` conversion in RegionSelect.tsx before emitting coords.
 
-2. **Can a Tauri global `emit` from `region-select` window reach `listen` in `overlay` window?**
-   - What we know: Tauri v2 docs confirm events are delivered to all windows. Reports exist of `emit_to` being unreliable in v2 (bug #10182).
-   - What's unclear: Whether global `emit` from one webview reaches `listen` registered in another webview.
-   - Recommendation: Test in Wave 0 with a simple ping event. Fallback: Rust command receives the selection data, then Rust uses `app.emit_to("overlay", ...)` to relay.
+2. **[RESOLVED — Wave 0 empirical test required] Can a Tauri global `emit` from `region-select` window reach `listen` in `overlay` window?**
+   - Resolution: ASSUMED YES based on Tauri v2 docs (`v2.tauri.app/develop/calling-frontend/` confirms global events reach all windows). However, bug #10182 reports `emit_to` unreliability in v2.
+   - Chosen assumption: Global `emit` from frontend reaches all windows. Plans use this pattern (Pattern 7).
+   - Empirical validation: Wave 0 Task (Plan 01) emits a `ping` event from a temporary test command and verifies `listen` in the overlay window receives it. Fallback if it fails: Rust-mediated relay via `app.emit_to("overlay", ...)`.
 
-3. **Window label `region-select` declared in tauri.conf.json — does it auto-create on startup?**
-   - What we know: In Tauri v2, windows declared in `tauri.conf.json` are created on startup by default. `visible: false` hides them.
-   - What's unclear: Whether `visible: false` in config results in a created-but-hidden window or a not-created window.
-   - Recommendation: Treat as created-but-hidden (safer assumption). Use `get_webview_window("region-select")` in Rust rather than `WebviewWindowBuilder`. If the window isn't found, create it lazily.
+3. **[RESOLVED — Wave 0 empirical test required] Does `visible: false` in tauri.conf.json result in a created-but-hidden or not-created window?**
+   - Resolution: ASSUMED created-but-hidden (safer assumption per Tauri v2 behavior: all declared windows are instantiated on startup; `visible: false` only sets initial visibility). `get_webview_window("region-select")` should return `Some(win)` at startup.
+   - Chosen assumption: Window exists at startup, hidden. Plans use `app.get_webview_window("region-select")` without lazy creation fallback.
+   - Empirical validation: Wave 0 Task (Plan 01) calls `get_webview_window("region-select")` at app startup and asserts it returns `Some`. Fallback if `None`: add `WebviewWindowBuilder` lazy creation path in `cmd_open_region_select`.
 
 ---
 
