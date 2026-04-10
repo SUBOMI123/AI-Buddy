@@ -1,5 +1,5 @@
 use rusqlite::{Connection, Result as SqlResult, params};
-use serde::{Deserialize, Serialize};
+use serde::Serialize;
 use std::sync::Mutex;
 use tauri::{AppHandle, Manager, State};
 use std::time::{SystemTime, UNIX_EPOCH};
@@ -129,9 +129,7 @@ async fn classify_intent(app: &AppHandle, raw_intent: &str) -> String {
     let worker_url =
         std::env::var("WORKER_URL").unwrap_or_else(|_| "http://localhost:8787".to_string());
 
-    // Build signed token for auth header
-    let installation_id = crate::preferences::get_installation_token(app);
-    // Re-use sign_token logic — import via crate path
+    // Build signed token for auth header — re-use cmd_get_token which signs the installation ID
     let token = crate::preferences::cmd_get_token(app.clone());
 
     let client = reqwest::Client::new();
@@ -184,6 +182,7 @@ fn intent_fallback_label(raw_intent: &str) -> String {
 // ---------------------------------------------------------------------------
 
 #[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct GuidanceContext {
     pub tier: u8,
     pub task_label: String,
@@ -233,7 +232,7 @@ pub async fn cmd_prepare_guidance_context(
 /// Async because it calls classify_intent (HTTP) before acquiring the lock.
 #[tauri::command]
 pub async fn cmd_record_interaction(
-    app: AppHandle,
+    _app: AppHandle,
     db: State<'_, MemoryDb>,
     task_label: String,
     raw_intent: String,
