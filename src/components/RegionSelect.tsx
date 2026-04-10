@@ -1,6 +1,7 @@
 import { createSignal, Show, onMount } from "solid-js";
 import { getCurrentWindow } from "@tauri-apps/api/window";
-import { emit } from "@tauri-apps/api/event";
+import { emitTo } from "@tauri-apps/api/event";
+import { invoke } from "@tauri-apps/api/core";
 
 // RegionCoords uses physical pixel coordinates — xcap expects physical pixels (D-09)
 export interface RegionCoords {
@@ -58,7 +59,9 @@ export function RegionSelect() {
 
   const cancel = async () => {
     setDrag(null);
-    await emit("region-cancelled", {});
+    // Close this window first, then notify the sidebar (emitTo targets overlay window by label)
+    await invoke("cmd_close_region_select").catch(() => {});
+    await emitTo("overlay", "region-cancelled", {});
   };
 
   const onMouseUp = async () => {
@@ -72,17 +75,23 @@ export function RegionSelect() {
     }
     setDrag(null);
 
-    // D-09: Convert logical px → physical px before emitting
-    // Pattern 3: scaleFactor() from Tauri DPI API
-    const factor = await getCurrentWindow().scaleFactor();
-    const coords: RegionCoords = {
-      x: Math.round(r.x * factor),
-      y: Math.round(r.y * factor),
-      width: Math.round(r.w * factor),
-      height: Math.round(r.h * factor),
-    };
-    // Pattern 7: global emit — SidebarShell listens with listen("region-selected")
-    await emit("region-selected", coords);
+    try {
+      // D-09: Convert logical px → physical px before emitting
+      const factor = await getCurrentWindow().scaleFactor();
+      const coords: RegionCoords = {
+        x: Math.round(r.x * factor),
+        y: Math.round(r.y * factor),
+        width: Math.round(r.w * factor),
+        height: Math.round(r.h * factor),
+      };
+      // Close this window immediately for responsive UX, then notify the sidebar
+      // emitTo("overlay") is required in Tauri v2 — plain emit() only reaches Rust listeners
+      await invoke("cmd_close_region_select").catch(() => {});
+      await emitTo("overlay", "region-selected", coords);
+    } catch (err) {
+      console.error("RegionSelect: failed to emit region-selected", err);
+      await cancel();
+    }
   };
 
   const onKeyDown = async (e: KeyboardEvent) => {

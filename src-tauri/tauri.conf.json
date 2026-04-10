@@ -40,8 +40,7 @@
         "visible": false,
         "resizable": false,
         "skipTaskbar": true,
-        "shadow": false,
-        "fullscreen": true
+        "shadow": false
       }
     ],
     "security": {

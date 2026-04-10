@@ -18,7 +18,6 @@ import {
   getTtsEnabled,
   playTts,
   openRegionSelect,
-  closeRegionSelect,
   captureRegion,
   onRegionSelected,
   onRegionCancelled,
@@ -127,9 +126,8 @@ export function SidebarShell() {
 
     // Phase 4: Region selection listeners
     // region-selected fires when user finishes drawing in the region-select window
+    // RegionSelect closes its own window before emitting, so no closeRegionSelect() needed here
     unlistenRegionSelected = await onRegionSelected(async (coords) => {
-      // Close the overlay window — sidebar becomes visible again (D-02, D-03)
-      await closeRegionSelect();
       setSelectedRegion(coords);
       setContentState("empty");  // return sidebar to idle with thumbnail visible
 
@@ -144,8 +142,8 @@ export function SidebarShell() {
     });
 
     // region-cancelled fires on Esc or too-small drag (D-10)
-    unlistenRegionCancelled = await onRegionCancelled(async () => {
-      await closeRegionSelect();
+    // RegionSelect closes its own window before emitting
+    unlistenRegionCancelled = await onRegionCancelled(() => {
       setContentState("empty");  // restore sidebar (Constraint 6: sidebar MUST reappear)
       // Do NOT set selectedRegion — region stays null, fallback to full-screen (D-04)
     });
