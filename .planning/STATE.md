@@ -69,6 +69,7 @@ Recent decisions affecting current work:
 | ID | Description | Date |
 |----|-------------|------|
 | 260409-wj5 | Remove unused AssemblyAiSessionBegin struct from ptt.rs to fix dead_code warning | 2026-04-10 |
+| 260409-wz8 | Fix PTT DeviceSink drop warning — capture tokio handle before std::thread::spawn in audio_cue.rs | 2026-04-10 |
 
 ### Pending Todos
 
