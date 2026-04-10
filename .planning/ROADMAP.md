@@ -47,7 +47,11 @@ Plans:
   3. Screenshot of the current screen is captured on demand and sent to Claude as visual context without being stored locally
   4. When intent is ambiguous, the AI asks a clarifying question instead of generating a guess
   5. User can complete a task in an unfamiliar app using only the guidance provided
-**Plans**: TBD
+**Plans**: 3 plans
+Plans:
+- [ ] 02-01-PLAN.md — Rust screenshot capture, HMAC token signing, Worker system prompt fix, frontend AI streaming module
+- [ ] 02-02-PLAN.md — Frontend UI wiring: LoadingDots, GuidanceList streaming, SidebarShell state machine
+- [ ] 02-03-PLAN.md — Human verification of end-to-end AI guidance loop
 **UI hint**: yes
 
 ### Phase 3: Voice I/O
@@ -90,7 +94,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. Infrastructure & App Shell | 0/3 | Planning complete | - |
-| 2. Core AI Loop | 0/TBD | Not started | - |
+| 2. Core AI Loop | 0/3 | Planning complete | - |
 | 3. Voice I/O | 0/TBD | Not started | - |
 | 4. Screen Region Selection | 0/TBD | Not started | - |
 | 5. Learning & Adaptation | 0/TBD | Not started | - |
