@@ -26,6 +26,7 @@ pub fn run() {
             preferences::cmd_get_tts_enabled,
             preferences::cmd_set_tts_enabled,
             screenshot::capture_screenshot,
+            voice::tts::cmd_play_tts,
         ])
         .setup(|app| {
             // Hide from macOS Dock and Cmd+Tab (per FOUND-01, INFRA-02)
