@@ -1,44 +1,48 @@
-import { For } from "solid-js";
+import { Show } from "solid-js";
 
 interface GuidanceListProps {
-  steps: string[];
+  streamingText: string;
 }
 
 export function GuidanceList(props: GuidanceListProps) {
+  let containerRef: HTMLDivElement | undefined;
+
+  // Auto-scroll to bottom as text grows
+  const scrollToBottom = () => {
+    if (containerRef) {
+      const isNearBottom =
+        containerRef.scrollHeight - containerRef.scrollTop - containerRef.clientHeight < 40;
+      if (isNearBottom) {
+        containerRef.scrollTop = containerRef.scrollHeight;
+      }
+    }
+  };
+
   return (
-    <ol
+    <div
+      ref={(el) => { containerRef = el; }}
       style={{
-        "list-style": "none",
-        padding: "0 var(--space-md)",
-        display: "flex",
-        "flex-direction": "column",
-        gap: "var(--space-sm)",
+        flex: "1",
+        "overflow-y": "auto",
+        padding: "0",
       }}
     >
-      <For each={props.steps}>
-        {(step, index) => (
-          <li
-            style={{
-              display: "flex",
-              gap: "var(--space-sm)",
-              "font-size": "var(--font-size-body)",
-              "line-height": "var(--line-height-body)",
-            }}
-          >
-            <span
-              style={{
-                color: "var(--color-text-secondary)",
-                "font-weight": "var(--font-weight-regular)",
-                "flex-shrink": "0",
-                "min-width": "20px",
-              }}
-            >
-              {index() + 1}.
-            </span>
-            <span style={{ color: "var(--color-text-primary)" }}>{step}</span>
-          </li>
-        )}
-      </For>
-    </ol>
+      <Show when={props.streamingText}>
+        <pre
+          style={{
+            "font-family": "inherit",
+            "font-size": "var(--font-size-body)",
+            "font-weight": "var(--font-weight-regular)",
+            "line-height": "var(--line-height-body)",
+            color: "var(--color-text-primary)",
+            "white-space": "pre-wrap",
+            "word-wrap": "break-word",
+            margin: "0",
+          }}
+        >
+          {(() => { scrollToBottom(); return props.streamingText; })()}
+        </pre>
+      </Show>
+    </div>
   );
 }
