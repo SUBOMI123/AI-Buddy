@@ -130,3 +130,38 @@ export function onRegionSelected(callback: (coords: RegionCoords) => void) {
 export function onRegionCancelled(callback: () => void) {
   return listen("region-cancelled", () => callback());
 }
+
+// Phase 5: Learning & Adaptation — memory IPC wrappers
+
+export interface GuidanceContext {
+  tier: number;
+  taskLabel: string;
+  encounterCount: number;
+}
+
+/** Classifies intent + looks up encounter count. Call BEFORE streamGuidance. */
+export async function prepareGuidanceContext(rawIntent: string): Promise<GuidanceContext> {
+  return invoke<GuidanceContext>("cmd_prepare_guidance_context", { rawIntent });
+}
+
+/** Records completed interaction. Call fire-and-forget in onDone. */
+export async function recordInteraction(
+  taskLabel: string,
+  rawIntent: string,
+  guidance: string,
+  tier: number,
+  appContext?: string,
+): Promise<void> {
+  return invoke<void>("cmd_record_interaction", {
+    taskLabel,
+    rawIntent,
+    appContext: appContext ?? null,
+    guidance,
+    tier,
+  });
+}
+
+/** Returns a short memory context summary string for system prompt injection (D-08). */
+export async function getMemoryContext(): Promise<string> {
+  return invoke<string>("cmd_get_memory_context");
+}

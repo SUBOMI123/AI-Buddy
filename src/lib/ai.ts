@@ -16,6 +16,16 @@ Rules:
 - Number every step
 - Do not include explanations of WHY unless the user asks -- focus on WHAT to do`;
 
+// Phase 5: Tier-based prompt suffix — appended to SYSTEM_PROMPT when tier > 1 (D-03)
+// Tier 1 (first encounter): no change — full step-by-step behavior
+// Tier 2 (second encounter): shorter summary mode
+// Tier 3 (third+ encounter): hints only
+const TIER_SUFFIX: Record<number, string> = {
+  1: "",
+  2: "\n\nThis user has completed this task before. Give a shorter summary — skip obvious sub-steps, consolidate related actions into single steps. Still number the steps. Do not mention that you're giving a shorter version.",
+  3: "\n\nThis user has completed this task multiple times. Give directional hints only — one or two sentences pointing them in the right direction. No numbered list, no sub-steps. Assume they know the basics.",
+};
+
 export interface StreamGuidanceOptions {
   token: string;
   screenshot: string | null;
@@ -24,10 +34,21 @@ export interface StreamGuidanceOptions {
   onError: (error: string) => void;
   onDone: () => void;
   signal?: AbortSignal;
+  // Phase 5: Learning & Adaptation
+  tier?: number;          // 1=full, 2=summary, 3=hints. Default: 1 (D-03)
+  memoryContext?: string; // Short summary string injected into system prompt (D-08)
+  taskLabel?: string;     // For post-completion recording (D-01)
 }
 
 export async function streamGuidance(opts: StreamGuidanceOptions): Promise<void> {
   const { token, screenshot, userIntent, onToken, onError, onDone, signal } = opts;
+  const { tier = 1, memoryContext } = opts;
+  const systemPrompt =
+    SYSTEM_PROMPT +
+    (TIER_SUFFIX[tier] ?? "") +
+    (memoryContext
+      ? `\n\n## User skill context\n${memoryContext}`
+      : "");
 
   // Build user content array with optional vision (D-09: screenshot + intent only)
   const userContent: Array<Record<string, unknown>> = [];
@@ -55,7 +76,7 @@ export async function streamGuidance(opts: StreamGuidanceOptions): Promise<void>
       body: JSON.stringify({
         model: "claude-sonnet-4-20250514",
         messages: [{ role: "user", content: userContent }],
-        system: SYSTEM_PROMPT,
+        system: systemPrompt,
         max_tokens: 4096,
       }),
       signal,
