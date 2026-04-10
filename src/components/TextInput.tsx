@@ -1,5 +1,5 @@
 import { Accessor, Setter } from "solid-js";
-import { Mic, Send } from "lucide-solid";
+import { Crop, Mic, Send } from "lucide-solid";
 
 interface TextInputProps {
   value: Accessor<string>;
@@ -9,6 +9,8 @@ interface TextInputProps {
   listening?: boolean;   // D-08: true when PTT is active
   sttError?: string;     // D-24: inline error message near input
   ref?: (el: HTMLInputElement) => void;
+  onRegionSelect?: () => void;  // called when Crop button is clicked (D-01)
+  regionActive?: boolean;       // true when a region is locked in (drives icon color)
 }
 
 export function TextInput(props: TextInputProps) {
@@ -107,6 +109,36 @@ export function TextInput(props: TextInputProps) {
             "font-family": "inherit",
           }}
         />
+
+        {/* D-01: Region select button — left of Send, always visible when not disabled */}
+        {props.onRegionSelect && (
+          <button
+            onClick={props.onRegionSelect}
+            title="Select screen region"
+            aria-label="Select screen region"
+            aria-pressed={props.regionActive ? "true" : "false"}
+            disabled={props.disabled}
+            style={{
+              display: "flex",
+              "align-items": "center",
+              "justify-content": "center",
+              border: "none",
+              background: "transparent",
+              cursor: "pointer",
+              padding: "var(--space-xs)",
+              // UI-SPEC: active = accent, idle = text-secondary
+              color: props.regionActive
+                ? "var(--color-accent)"
+                : "var(--color-text-secondary)",
+              "min-height": "44px",
+              "min-width": "44px",
+              "flex-shrink": "0",
+              transition: "color var(--transition-fast)",
+            }}
+          >
+            <Crop size={16} />
+          </button>
+        )}
 
         <button
           onClick={handleSubmit}
