@@ -40,13 +40,6 @@ struct AssemblyAiMessage {
     end_of_turn: Option<bool>,
 }
 
-#[derive(Debug, Serialize)]
-struct AssemblyAiSessionBegin {
-    #[serde(rename = "type")]
-    msg_type: String,
-    sample_rate: u32,
-}
-
 /// Fetch a short-lived AssemblyAI streaming token from the Worker /stt endpoint.
 /// Worker validates HMAC auth before issuing the token (T-03-04).
 async fn fetch_stt_token(worker_url: &str, app_token: &str) -> Result<String, String> {

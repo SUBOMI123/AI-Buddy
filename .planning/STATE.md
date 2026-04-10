@@ -64,6 +64,12 @@ Recent decisions affecting current work:
 - Phase 1: xcap has active bugs — abstract screen capture interface for swappability from day one
 - Phase 3: Voice pipeline MUST use streaming STT from day one — retrofitting batch → streaming is painful
 
+### Quick Tasks Completed
+
+| ID | Description | Date |
+|----|-------------|------|
+| 260409-wj5 | Remove unused AssemblyAiSessionBegin struct from ptt.rs to fix dead_code warning | 2026-04-10 |
+
 ### Pending Todos
 
 None yet.
