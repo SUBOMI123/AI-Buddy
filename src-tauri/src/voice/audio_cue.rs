@@ -26,9 +26,10 @@ fn play_cue_bytes(wav_bytes: &'static [u8]) {
         let _ = tokio::task::spawn_blocking(move || {
             use rodio::{Decoder, DeviceSinkBuilder};
             use std::io::Cursor;
-            let Ok(sink) = DeviceSinkBuilder::open_default_sink() else {
+            let Ok(mut sink) = DeviceSinkBuilder::open_default_sink() else {
                 return; // No audio device — silently skip
             };
+            sink.log_on_drop(false);
             let Ok(source) = Decoder::new(Cursor::new(wav_bytes)) else {
                 return; // Decode error — silently skip
             };

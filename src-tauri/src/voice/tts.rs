@@ -92,13 +92,14 @@ pub async fn cmd_play_tts(app: AppHandle, text: String) -> Result<(), String> {
 
         // rodio 0.22 API: DeviceSinkBuilder::open_default_sink() replaces OutputStream + Sink pattern.
         // Returns MixerDeviceSink; play via mixer().add(source).
-        let handle = match DeviceSinkBuilder::open_default_sink() {
+        let mut handle = match DeviceSinkBuilder::open_default_sink() {
             Ok(h) => h,
             Err(e) => {
                 eprintln!("TTS: audio output unavailable: {}", e);
                 return;
             }
         };
+        handle.log_on_drop(false);
 
         let cursor = Cursor::new(audio_bytes);
         let source = match Decoder::new(cursor) {
