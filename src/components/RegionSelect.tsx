@@ -123,23 +123,28 @@ export function RegionSelect() {
         outline: "none",
       }}
     >
-      {/* Instruction text — hidden during drag (UI-SPEC) */}
+      {/* Instruction pill — centered, below macOS menu bar, hidden during drag */}
       <Show when={!drag()}>
         <div
           style={{
             position: "absolute",
-            top: "0",
-            left: "0",
-            right: "0",
-            "text-align": "center",
-            "padding-top": "var(--space-lg)",
-            color: "rgba(255, 255, 255, 0.75)",
-            "font-size": "var(--font-size-body)",
-            "font-weight": "var(--font-weight-regular)",
+            top: "56px", // clears macOS menu bar (~25px) with breathing room
+            left: "50%",
+            transform: "translateX(-50%)",
+            background: "rgba(0, 0, 0, 0.72)",
+            "backdrop-filter": "blur(8px)",
+            "-webkit-backdrop-filter": "blur(8px)",
+            color: "rgba(255, 255, 255, 0.95)",
+            "font-size": "13px",
+            "font-weight": "500",
+            "letter-spacing": "0.01em",
+            padding: "8px 16px",
+            "border-radius": "20px",
+            "white-space": "nowrap",
             "pointer-events": "none",
           }}
         >
-          Drag to select a region&nbsp; •&nbsp; Esc to cancel
+          Drag to select a region&nbsp;&nbsp;·&nbsp;&nbsp;Esc to cancel
         </div>
       </Show>
 
