@@ -28,6 +28,23 @@ pub struct Preferences {
     pub shortcut: String,
     pub installation_token: String,
     pub sidebar_edge: String, // "right" or "left"
+    // Phase 3: Voice settings
+    #[serde(default = "default_ptt_key")]
+    pub ptt_key: String,
+    #[serde(default = "default_audio_cues_enabled")]
+    pub audio_cues_enabled: bool,
+    #[serde(default = "default_tts_enabled")]
+    pub tts_enabled: bool,
+}
+
+fn default_ptt_key() -> String {
+    "CommandOrControl+Shift+V".to_string()
+}
+fn default_audio_cues_enabled() -> bool {
+    true
+}
+fn default_tts_enabled() -> bool {
+    false
 }
 
 impl Default for Preferences {
@@ -36,6 +53,9 @@ impl Default for Preferences {
             shortcut: "CommandOrControl+Shift+Space".to_string(),
             installation_token: Uuid::new_v4().to_string(),
             sidebar_edge: "right".to_string(),
+            ptt_key: default_ptt_key(),
+            audio_cues_enabled: default_audio_cues_enabled(),
+            tts_enabled: default_tts_enabled(),
         }
     }
 }
@@ -114,4 +134,51 @@ pub fn cmd_set_shortcut(app: AppHandle, shortcut: String) -> Result<String, Stri
 pub fn cmd_get_token(app: AppHandle) -> String {
     let installation_id = get_installation_token(&app);
     sign_token(&installation_id)
+}
+
+/// Tauri command: get the configured PTT key binding
+#[tauri::command]
+pub fn cmd_get_ptt_key(app: AppHandle) -> String {
+    load_preferences(&app).ptt_key
+}
+
+/// Tauri command: update PTT key binding (validates parse before saving)
+#[tauri::command]
+pub fn cmd_set_ptt_key(app: AppHandle, key: String) -> Result<String, String> {
+    let parsed: Result<tauri_plugin_global_shortcut::Shortcut, _> = key.parse();
+    if parsed.is_err() {
+        return Err(format!("Invalid PTT key: {}", key));
+    }
+    let mut prefs = load_preferences(&app);
+    prefs.ptt_key = key.clone();
+    save_preferences(&app, &prefs);
+    Ok(key)
+}
+
+/// Tauri command: get whether audio cues are enabled
+#[tauri::command]
+pub fn cmd_get_audio_cues_enabled(app: AppHandle) -> bool {
+    load_preferences(&app).audio_cues_enabled
+}
+
+/// Tauri command: set whether audio cues are enabled
+#[tauri::command]
+pub fn cmd_set_audio_cues_enabled(app: AppHandle, enabled: bool) {
+    let mut prefs = load_preferences(&app);
+    prefs.audio_cues_enabled = enabled;
+    save_preferences(&app, &prefs);
+}
+
+/// Tauri command: get whether TTS is enabled
+#[tauri::command]
+pub fn cmd_get_tts_enabled(app: AppHandle) -> bool {
+    load_preferences(&app).tts_enabled
+}
+
+/// Tauri command: set whether TTS is enabled
+#[tauri::command]
+pub fn cmd_set_tts_enabled(app: AppHandle, enabled: bool) {
+    let mut prefs = load_preferences(&app);
+    prefs.tts_enabled = enabled;
+    save_preferences(&app, &prefs);
 }
