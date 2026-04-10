@@ -88,3 +88,45 @@ export function onSttFinal(callback: (transcript: string) => void) {
 export function onSttError(callback: (error: string) => void) {
   return listen<string>("stt-error", (event) => callback(event.payload));
 }
+
+// ---- Phase 4: Screen Region Selection IPC wrappers ----
+
+export interface RegionCoords {
+  x: number;      // physical pixels
+  y: number;      // physical pixels
+  width: number;  // physical pixels
+  height: number; // physical pixels
+}
+
+/** Show the full-screen region-select overlay window.
+ *  Positions to cover primary monitor and sets focus. (D-02, RESEARCH Pattern 1) */
+export async function openRegionSelect(): Promise<void> {
+  return invoke("cmd_open_region_select");
+}
+
+/** Hide the region-select overlay window without destroying it. (Pitfall 5) */
+export async function closeRegionSelect(): Promise<void> {
+  return invoke("cmd_close_region_select");
+}
+
+/** Capture a specific screen region at physical pixel coordinates.
+ *  Returns base64-encoded JPEG string. (D-08, D-09) */
+export async function captureRegion(coords: RegionCoords): Promise<string> {
+  return invoke<string>("capture_region", {
+    x: coords.x,
+    y: coords.y,
+    width: coords.width,
+    height: coords.height,
+  });
+}
+
+/** Listen for region-selected event from the RegionSelect overlay window.
+ *  Payload contains physical pixel coordinates converted by RegionSelect. (Pattern 7) */
+export function onRegionSelected(callback: (coords: RegionCoords) => void) {
+  return listen<RegionCoords>("region-selected", (event) => callback(event.payload));
+}
+
+/** Listen for region-cancelled event — emitted when user presses Escape or draws < 10px. */
+export function onRegionCancelled(callback: () => void) {
+  return listen("region-cancelled", () => callback());
+}
