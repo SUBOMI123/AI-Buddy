@@ -1,8 +1,27 @@
+use hmac::{Hmac, Mac};
 use serde::{Deserialize, Serialize};
+use sha2::Sha256;
 use std::fs;
 use std::path::PathBuf;
 use tauri::{AppHandle, Manager};
 use uuid::Uuid;
+
+type HmacSha256 = Hmac<Sha256>;
+
+// Shared secret -- must match APP_HMAC_SECRET in Worker env.
+// This is an app identity proof, not a user secret.
+// Embedded at build time; the Worker holds the same value.
+const APP_HMAC_SECRET: &str = env!("APP_HMAC_SECRET");
+
+/// Compute signed token: "<uuid>.<hmac_hex>"
+fn sign_token(installation_id: &str) -> String {
+    let mut mac = HmacSha256::new_from_slice(APP_HMAC_SECRET.as_bytes())
+        .expect("HMAC can take key of any size");
+    mac.update(installation_id.as_bytes());
+    let result = mac.finalize();
+    let hex_sig = hex::encode(result.into_bytes());
+    format!("{}.{}", installation_id, hex_sig)
+}
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Preferences {
@@ -89,8 +108,10 @@ pub fn cmd_set_shortcut(app: AppHandle, shortcut: String) -> Result<String, Stri
     Ok(shortcut)
 }
 
-/// Tauri command: get installation token (used by frontend to set x-app-token header)
+/// Tauri command: get signed installation token (used by frontend to set x-app-token header)
+/// Returns format: "<uuid>.<hmac_hex_signature>" validated by the Worker auth middleware.
 #[tauri::command]
 pub fn cmd_get_token(app: AppHandle) -> String {
-    get_installation_token(&app)
+    let installation_id = get_installation_token(&app);
+    sign_token(&installation_id)
 }

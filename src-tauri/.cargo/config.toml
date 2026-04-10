@@ -1,0 +1,2 @@
+[env]
+APP_HMAC_SECRET = "dev-hmac-secret-do-not-use-in-production"

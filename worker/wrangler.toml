@@ -7,6 +7,7 @@ compatibility_date = "2024-09-23"
 #   npx wrangler secret put ANTHROPIC_API_KEY
 #   npx wrangler secret put ASSEMBLYAI_API_KEY
 #   npx wrangler secret put ELEVENLABS_API_KEY
+#   npx wrangler secret put APP_HMAC_SECRET
 
 # KV namespace for per-token rate limiting (D-10).
 # Create the namespace before first deploy:

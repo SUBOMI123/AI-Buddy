@@ -1,5 +1,6 @@
 mod permissions;
 mod preferences;
+mod screenshot;
 mod shortcut;
 mod tray;
 mod window;
@@ -17,6 +18,7 @@ pub fn run() {
             preferences::cmd_get_shortcut,
             preferences::cmd_set_shortcut,
             preferences::cmd_get_token,
+            screenshot::capture_screenshot,
         ])
         .setup(|app| {
             // Hide from macOS Dock and Cmd+Tab (per FOUND-01, INFRA-02)
