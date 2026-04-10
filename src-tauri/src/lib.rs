@@ -3,6 +3,7 @@ mod preferences;
 mod screenshot;
 mod shortcut;
 mod tray;
+mod voice;
 mod window;
 
 
@@ -18,6 +19,12 @@ pub fn run() {
             preferences::cmd_get_shortcut,
             preferences::cmd_set_shortcut,
             preferences::cmd_get_token,
+            preferences::cmd_get_ptt_key,
+            preferences::cmd_set_ptt_key,
+            preferences::cmd_get_audio_cues_enabled,
+            preferences::cmd_set_audio_cues_enabled,
+            preferences::cmd_get_tts_enabled,
+            preferences::cmd_set_tts_enabled,
             screenshot::capture_screenshot,
         ])
         .setup(|app| {
@@ -35,6 +42,10 @@ pub fn run() {
 
             // Register global shortcut from preferences (per D-06)
             shortcut::register_shortcut(app.handle())
+                .map_err(|e| Box::new(std::io::Error::new(std::io::ErrorKind::Other, e.to_string())))?;
+
+            // Register PTT shortcut (Ctrl+Shift+V by default, configurable via preferences)
+            shortcut::register_ptt_shortcut(app.handle())
                 .map_err(|e| Box::new(std::io::Error::new(std::io::ErrorKind::Other, e.to_string())))?;
 
             Ok(())
