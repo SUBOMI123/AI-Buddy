@@ -1,6 +1,5 @@
 import { createSignal, Show, onMount, onCleanup } from "solid-js";
 import { getCurrentWindow } from "@tauri-apps/api/window";
-import { emitTo } from "@tauri-apps/api/event";
 import { invoke } from "@tauri-apps/api/core";
 
 // RegionCoords uses physical pixel coordinates — xcap expects physical pixels (D-09)
@@ -37,8 +36,8 @@ export function RegionSelect() {
 
   const cancel = async () => {
     setDrag(null);
-    await invoke("cmd_close_region_select").catch(() => {});
-    await emitTo("overlay", "region-cancelled", {}).catch(() => {});
+    // Rust hides the window and emits region-cancelled to all windows atomically
+    await invoke("cmd_cancel_region").catch((err) => console.error("cmd_cancel_region failed", err));
   };
 
   const confirmRegion = async () => {
@@ -50,15 +49,14 @@ export function RegionSelect() {
     setDrag(null);
     try {
       const factor = await getCurrentWindow().scaleFactor();
-      const coords: RegionCoords = {
+      // Rust hides the window and emits region-selected to all windows atomically,
+      // avoiding the JS-suspend-on-hide race condition
+      await invoke("cmd_confirm_region", {
         x: Math.round(r.x * factor),
         y: Math.round(r.y * factor),
         width: Math.round(r.w * factor),
         height: Math.round(r.h * factor),
-      };
-      // emitTo("overlay") required in Tauri v2 — plain emit() only reaches Rust listeners
-      await invoke("cmd_close_region_select").catch(() => {});
-      await emitTo("overlay", "region-selected", coords);
+      });
     } catch (err) {
       console.error("RegionSelect: confirmRegion failed", err);
       await cancel();

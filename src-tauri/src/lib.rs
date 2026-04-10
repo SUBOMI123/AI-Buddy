@@ -29,6 +29,8 @@ pub fn run() {
             screenshot::capture_region,
             window::cmd_open_region_select,
             window::cmd_close_region_select,
+            window::cmd_confirm_region,
+            window::cmd_cancel_region,
             voice::tts::cmd_play_tts,
         ])
         .setup(|app| {

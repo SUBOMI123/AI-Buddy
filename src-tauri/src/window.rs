@@ -1,4 +1,13 @@
+use serde::Serialize;
 use tauri::{AppHandle, Emitter, Manager, WebviewWindow};
+
+#[derive(Serialize, Clone)]
+pub struct RegionCoords {
+    pub x: u32,
+    pub y: u32,
+    pub width: u32,
+    pub height: u32,
+}
 
 /// Toggle the overlay window visibility.
 /// When showing, positions to right edge of primary monitor and emits "overlay-shown" event.
@@ -75,4 +84,31 @@ pub async fn cmd_close_region_select(app: AppHandle) -> Result<(), String> {
         .get_webview_window("region-select")
         .ok_or_else(|| "region-select window not found".to_string())?;
     win.hide().map_err(|e| e.to_string())
+}
+
+/// Confirm region selection: hide the overlay and broadcast region-selected to all windows.
+/// Combining hide + emit in Rust avoids the JS suspend-on-hide race condition.
+#[tauri::command]
+pub async fn cmd_confirm_region(
+    app: AppHandle,
+    x: u32,
+    y: u32,
+    width: u32,
+    height: u32,
+) -> Result<(), String> {
+    if let Some(win) = app.get_webview_window("region-select") {
+        let _ = win.hide();
+    }
+    app.emit("region-selected", RegionCoords { x, y, width, height })
+        .map_err(|e| e.to_string())
+}
+
+/// Cancel region selection: hide the overlay and broadcast region-cancelled to all windows.
+#[tauri::command]
+pub async fn cmd_cancel_region(app: AppHandle) -> Result<(), String> {
+    if let Some(win) = app.get_webview_window("region-select") {
+        let _ = win.hide();
+    }
+    app.emit("region-cancelled", ())
+        .map_err(|e| e.to_string())
 }
