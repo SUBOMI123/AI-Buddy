@@ -263,6 +263,32 @@ pub async fn start_ptt_session(
 
         let (mut ws_write, mut ws_read) = ws_stream.split();
 
+        // Wait for AssemblyAI v3 "Begin" handshake before sending audio.
+        // The server closes the connection immediately if the token is wrong.
+        eprintln!("PTT: waiting for Begin handshake...");
+        match ws_read.next().await {
+            Some(Ok(Message::Text(text))) => {
+                eprintln!("PTT: handshake msg: {}", text);
+                // Continue — Begin (or any text frame) means the session is live.
+            }
+            Some(Ok(_)) => {
+                eprintln!("PTT: unexpected non-text handshake frame");
+            }
+            Some(Err(e)) => {
+                eprintln!("PTT: WS error during handshake: {}", e);
+                IS_PTT_ACTIVE.store(false, Ordering::SeqCst);
+                let _ = app_for_ws.emit("stt-error", format!("STT handshake error: {}", e));
+                return;
+            }
+            None => {
+                eprintln!("PTT: WS closed by server before handshake — token rejected or session limit");
+                IS_PTT_ACTIVE.store(false, Ordering::SeqCst);
+                let _ = app_for_ws.emit("stt-error", "STT connection rejected");
+                return;
+            }
+        }
+        eprintln!("PTT: session live, starting audio stream");
+
         // Spawn PCM sender task
         let mut stop_rx_clone = stop_rx.clone();
         tokio::spawn(async move {
@@ -344,7 +370,11 @@ pub async fn start_ptt_session(
                             IS_PTT_ACTIVE.store(false, Ordering::SeqCst);
                             break;
                         }
-                        None => break,
+                        None => {
+                            eprintln!("PTT: WS stream closed by server");
+                            let _ = app_for_ws.emit("stt-final", "");
+                            break;
+                        }
                         _ => {}
                     }
                 }
