@@ -214,13 +214,14 @@ export function SidebarShell() {
 
     // Phase 5: Classify intent + get tier (D-02, D-03)
     // Force tier 1 if user clicked "Show full steps" (D-04)
-    let ctx = { tier: 1, taskLabel: "", encounterCount: 0 };
+    const fallbackLabel = intent.slice(0, 50).replace(/\s+/g, "_").toLowerCase();
+    let ctx = { tier: 1, taskLabel: fallbackLabel, encounterCount: 0 };
     if (!forceFullSteps) {
       try {
         ctx = await prepareGuidanceContext(intent);
       } catch {
         // Classification failed — default to tier 1 (full guidance)
-        ctx = { tier: 1, taskLabel: intent.slice(0, 50).replace(/\s+/g, "_").toLowerCase(), encounterCount: 0 };
+        ctx = { tier: 1, taskLabel: fallbackLabel, encounterCount: 0 };
       }
     }
     setCurrentTier(ctx.tier);
