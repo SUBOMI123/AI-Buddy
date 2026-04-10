@@ -303,20 +303,41 @@ pub async fn start_ptt_session(
         eprintln!("PTT: session live, starting audio stream");
 
         // Spawn PCM sender task
+        // AssemblyAI v3 requires frames of 50–1000 ms.
+        // At 16 kHz / s16le: 100 ms = 3200 bytes.  Buffer until we hit that.
         let mut stop_rx_clone = stop_rx.clone();
         tokio::spawn(async move {
+            let mut pcm_buf: Vec<u8> = Vec::with_capacity(6400);
+            const MIN_BYTES: usize = 3200; // 100 ms @ 16 kHz s16le
+
             loop {
                 tokio::select! {
                     frame = pcm_rx.recv() => {
                         match frame {
                             Some(bytes) => {
-                                let _ = ws_write.send(Message::Binary(bytes.into())).await;
+                                pcm_buf.extend_from_slice(&bytes);
+                                if pcm_buf.len() >= MIN_BYTES {
+                                    let to_send = std::mem::take(&mut pcm_buf);
+                                    let _ = ws_write.send(Message::Binary(to_send.into())).await;
+                                }
                             }
-                            None => break,
+                            None => {
+                                // Flush remaining audio before exit
+                                if !pcm_buf.is_empty() {
+                                    let to_send = std::mem::take(&mut pcm_buf);
+                                    let _ = ws_write.send(Message::Binary(to_send.into())).await;
+                                }
+                                break;
+                            }
                         }
                     }
                     _ = stop_rx_clone.changed() => {
                         if *stop_rx_clone.borrow() {
+                            // Flush buffered audio so final words aren't lost
+                            if !pcm_buf.is_empty() {
+                                let to_send = std::mem::take(&mut pcm_buf);
+                                let _ = ws_write.send(Message::Binary(to_send.into())).await;
+                            }
                             // T-03-03: Send AssemblyAI v3 terminate message before closing
                             let terminate = r#"{"type":"Terminate"}"#;
                             let _ = ws_write.send(Message::Text(terminate.to_string().into())).await;
