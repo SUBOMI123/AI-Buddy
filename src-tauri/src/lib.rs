@@ -3,6 +3,7 @@ mod preferences;
 mod screenshot;
 mod shortcut;
 mod tray;
+mod voice;
 mod window;
 
 
