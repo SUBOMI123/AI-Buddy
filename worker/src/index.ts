@@ -100,20 +100,26 @@ app.use('*', async (c, next) => {
   }
 
   // 2. Check rate limit via KV (keyed on installation ID, not full token)
-  const { allowed, remaining } = await checkRateLimit(c.env.RATE_LIMIT, tokenValue);
+  // Gracefully skip rate limiting if KV namespace is not available (local dev)
+  try {
+    if (c.env.RATE_LIMIT) {
+      const { allowed, remaining } = await checkRateLimit(c.env.RATE_LIMIT, tokenValue);
 
-  if (!allowed) {
-    return c.json(
-      { error: 'Rate limit exceeded', retry_after: 60 },
-      {
-        status: 429,
-        headers: { 'Retry-After': '60' },
-      },
-    );
+      if (!allowed) {
+        return c.json(
+          { error: 'Rate limit exceeded', retry_after: 60 },
+          {
+            status: 429,
+            headers: { 'Retry-After': '60' },
+          },
+        );
+      }
+
+      c.header('X-RateLimit-Remaining', String(remaining));
+    }
+  } catch {
+    // KV not available in local dev — skip rate limiting
   }
-
-  // Set rate-limit remaining header on every successful auth
-  c.header('X-RateLimit-Remaining', String(remaining));
 
   return next();
 });
@@ -150,7 +156,7 @@ app.post('/chat', async (c) => {
       'anthropic-version': '2023-06-01',
     },
     body: JSON.stringify({
-      model: body.model ?? 'claude-3-5-sonnet-20241022',
+      model: body.model ?? 'claude-sonnet-4-20250514',
       messages: body.messages,
       system: body.system,
       max_tokens: Math.min(Number(body.max_tokens) || 4096, 4096),
