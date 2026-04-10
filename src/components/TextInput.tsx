@@ -1,20 +1,22 @@
-import { createSignal } from "solid-js";
-import { Send } from "lucide-solid";
+import { Accessor, Setter } from "solid-js";
+import { Mic, Send } from "lucide-solid";
 
 interface TextInputProps {
+  value: Accessor<string>;
+  setValue: Setter<string>;
   onSubmit: (text: string) => void;
   disabled?: boolean;
+  listening?: boolean;   // D-08: true when PTT is active
+  sttError?: string;     // D-24: inline error message near input
   ref?: (el: HTMLInputElement) => void;
 }
 
 export function TextInput(props: TextInputProps) {
-  const [value, setValue] = createSignal("");
-
   const handleSubmit = () => {
-    const text = value().trim();
+    const text = props.value().trim();
     if (text) {
       props.onSubmit(text);
-      setValue("");
+      props.setValue("");
     }
   };
 
@@ -25,61 +27,112 @@ export function TextInput(props: TextInputProps) {
     }
   };
 
+  // D-08: Listening indicator styles — pulsing border ring when PTT is active
+  const borderColor = () => props.listening
+    ? "var(--color-accent)"
+    : "transparent";
+
+  const boxShadow = () => props.listening
+    ? "0 0 0 2px var(--color-accent)"
+    : "none";
+
+  const animation = () => props.listening ? "ptt-pulse 1.2s ease-in-out infinite" : "none";
+
   return (
-    <div
-      style={{
-        display: "flex",
-        "align-items": "center",
-        gap: "var(--space-sm)",
-        background: "var(--color-surface-secondary)",
-        "border-radius": "var(--radius-md)",
-        padding: "var(--space-sm) var(--space-md)",
-        "min-height": "44px",
-        opacity: props.disabled ? "0.5" : "1",
-        "pointer-events": props.disabled ? "none" : "auto",
-        transition: "opacity var(--transition-fast)",
-      }}
-    >
-      <input
-        ref={props.ref}
-        type="text"
-        placeholder="Ask me anything about what's on your screen..."
-        value={value()}
-        onInput={(e) => setValue(e.currentTarget.value)}
-        onKeyDown={handleKeyDown}
-        disabled={props.disabled}
-        style={{
-          flex: "1",
-          border: "none",
-          outline: "none",
-          background: "transparent",
-          color: "var(--color-text-primary)",
-          "font-size": "var(--font-size-body)",
-          "font-weight": "var(--font-weight-regular)",
-          "line-height": "var(--line-height-body)",
-          "font-family": "inherit",
-        }}
-      />
-      <button
-        onClick={handleSubmit}
-        disabled={props.disabled || !value().trim()}
+    <div style={{ display: "flex", "flex-direction": "column", gap: "var(--space-xs)" }}>
+      {/* D-24, D-25: STT error shown inline — field text preserved, not cleared */}
+      {props.sttError && (
+        <p
+          style={{
+            "font-size": "var(--font-size-label)",
+            color: "var(--color-text-secondary)",
+            margin: "0",
+            padding: "0 var(--space-xs)",
+          }}
+          aria-live="polite"
+        >
+          {props.sttError}
+        </p>
+      )}
+
+      <style>{`
+        @keyframes ptt-pulse {
+          0%, 100% { box-shadow: 0 0 0 2px var(--color-accent); }
+          50% { box-shadow: 0 0 0 4px var(--color-accent); opacity: 0.7; }
+        }
+      `}</style>
+
+      <div
         style={{
           display: "flex",
           "align-items": "center",
-          "justify-content": "center",
-          border: "none",
-          background: "transparent",
-          cursor: value().trim() ? "pointer" : "default",
-          padding: "var(--space-xs)",
-          color: value().trim() ? "var(--color-accent)" : "var(--color-text-secondary)",
-          opacity: value().trim() ? "1" : "0.5",
-          transition: "color var(--transition-fast), opacity var(--transition-fast)",
-          "flex-shrink": "0",
+          gap: "var(--space-sm)",
+          background: "var(--color-surface-secondary)",
+          "border-radius": "var(--radius-md)",
+          padding: "var(--space-sm) var(--space-md)",
+          "min-height": "44px",
+          opacity: props.disabled ? "0.5" : "1",
+          "pointer-events": props.disabled ? "none" : "auto",
+          transition: "opacity var(--transition-fast), box-shadow var(--transition-fast)",
+          "box-shadow": boxShadow(),
+          animation: animation(),
         }}
-        aria-label="Send message"
       >
-        <Send size={24} />
-      </button>
+        {/* D-08: Mic icon visible during PTT listening state */}
+        {props.listening && (
+          <Mic
+            size={16}
+            style={{
+              color: "var(--color-accent)",
+              "flex-shrink": "0",
+              animation: "none",
+            }}
+            aria-label="Listening..."
+          />
+        )}
+
+        <input
+          ref={props.ref}
+          type="text"
+          placeholder={props.listening ? "Listening..." : "Ask me anything about what's on your screen..."}
+          value={props.value()}
+          onInput={(e) => props.setValue(e.currentTarget.value)}
+          onKeyDown={handleKeyDown}
+          disabled={props.disabled}
+          style={{
+            flex: "1",
+            border: "none",
+            outline: "none",
+            background: "transparent",
+            color: "var(--color-text-primary)",
+            "font-size": "var(--font-size-body)",
+            "font-weight": "var(--font-weight-regular)",
+            "line-height": "var(--line-height-body)",
+            "font-family": "inherit",
+          }}
+        />
+
+        <button
+          onClick={handleSubmit}
+          disabled={props.disabled || !props.value().trim()}
+          style={{
+            display: "flex",
+            "align-items": "center",
+            "justify-content": "center",
+            border: "none",
+            background: "transparent",
+            cursor: props.value().trim() ? "pointer" : "default",
+            padding: "var(--space-xs)",
+            color: props.value().trim() ? "var(--color-accent)" : "var(--color-text-secondary)",
+            opacity: props.value().trim() ? "1" : "0.5",
+            transition: "color var(--transition-fast), opacity var(--transition-fast)",
+            "flex-shrink": "0",
+          }}
+          aria-label="Send message"
+        >
+          <Send size={24} />
+        </button>
+      </div>
     </div>
   );
 }

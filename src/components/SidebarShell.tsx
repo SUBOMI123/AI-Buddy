@@ -10,10 +10,15 @@ import {
   onOverlayShown,
   captureScreenshot,
   getInstallationToken,
+  onSttPartial,
+  onSttFinal,
+  onSttError,
+  getTtsEnabled,
 } from "../lib/tauri";
 import { streamGuidance } from "../lib/ai";
 
-type ContentState = "empty" | "loading" | "streaming" | "error";
+// D-08: "listening" added for PTT active state
+type ContentState = "empty" | "loading" | "streaming" | "error" | "listening";
 
 export function SidebarShell() {
   const [needsPermission, setNeedsPermission] = createSignal(true);
@@ -24,8 +29,20 @@ export function SidebarShell() {
   const [screenshotFailed, setScreenshotFailed] = createSignal(false);
   const [lastIntent, setLastIntent] = createSignal("");
 
+  // Phase 3: Lifted input state (D-17: unified input field)
+  const [inputValue, setInputValue] = createSignal("");
+  // Phase 3: STT inline error (D-24)
+  const [sttError, setSttError] = createSignal("");
+  // Phase 3: TTS preference (D-12: off by default)
+  const [ttsEnabled, setTtsEnabled] = createSignal(false);
+  // Phase 3: PTT listening indicator — MUST be declared before onMount (D-08)
+  const [isListening, setIsListening] = createSignal(false);
+
   let inputRef: HTMLInputElement | undefined;
   let unlistenOverlay: (() => void) | undefined;
+  let unlistenSttPartial: (() => void) | undefined;
+  let unlistenSttFinal: (() => void) | undefined;
+  let unlistenSttError: (() => void) | undefined;
   let abortController: AbortController | null = null;
 
   onMount(async () => {
@@ -38,16 +55,53 @@ export function SidebarShell() {
       // Permission check failed, keep dialog showing
     }
 
+    // Load TTS preference (D-12, D-14)
+    try {
+      const enabled = await getTtsEnabled();
+      setTtsEnabled(enabled);
+    } catch {
+      // Default to false on error
+    }
+
     const unlisten = await onOverlayShown(() => {
       if (inputRef && !needsPermission()) {
         inputRef.focus();
       }
     });
     unlistenOverlay = unlisten;
+
+    // Phase 3: STT event listeners
+    // D-05, D-06, D-07: Partial transcripts replace field value in real-time
+    // D-08: setIsListening(true) on first partial — shows mic indicator
+    unlistenSttPartial = await onSttPartial((transcript) => {
+      setInputValue(transcript);  // D-07: full partial (not delta) — overwrite
+      setSttError("");             // clear any previous error on new speech
+      setIsListening(true);        // D-08: mic indicator active during PTT
+    });
+
+    // D-09: Final transcript stays in field — user must press Enter to submit
+    // D-19: PTT does NOT clear field — transcript stays as-is on release
+    unlistenSttFinal = await onSttFinal((transcript) => {
+      if (transcript) setInputValue(transcript); // only update if non-empty (D-11, D-19)
+      setIsListening(false);       // D-26: return mic indicator to idle
+      setContentState("empty");    // return to idle (NOT auto-submit — D-09)
+    });
+
+    // D-24, D-25, D-26: STT error — show message, preserve text, return to idle
+    unlistenSttError = await onSttError((error) => {
+      console.error("STT error:", error);
+      setSttError("Didn't catch that — try again"); // D-24
+      setIsListening(false);       // D-26: mic indicator returns to idle
+      setContentState("empty");    // D-26: return to idle state
+      // D-25: inputValue is NOT cleared — preserve user's partial text
+    });
   });
 
   onCleanup(() => {
     unlistenOverlay?.();
+    unlistenSttPartial?.();
+    unlistenSttFinal?.();
+    unlistenSttError?.();
     abortController?.abort();
   });
 
@@ -63,6 +117,9 @@ export function SidebarShell() {
   };
 
   const submitIntent = async (intent: string) => {
+    // Clear STT error on new submission
+    setSttError("");
+
     // Abort any in-flight request (D-07: clear and replace)
     abortController?.abort();
     abortController = new AbortController();
@@ -100,7 +157,6 @@ export function SidebarShell() {
       screenshot,
       userIntent: intent,
       onToken: (text) => {
-        // First token: switch from loading to streaming (D-06)
         if (contentState() === "loading") {
           setContentState("streaming");
         }
@@ -112,7 +168,6 @@ export function SidebarShell() {
       },
       onDone: () => {
         if (contentState() === "loading") {
-          // Stream completed with no tokens (edge case)
           setContentState("streaming");
         }
       },
@@ -164,7 +219,7 @@ export function SidebarShell() {
           padding: "0 var(--space-md)",
         }}
       >
-        {/* Permission flow (unchanged from Phase 1) */}
+        {/* Permission flow (unchanged from Phase 2) */}
         <Show when={needsPermission()}>
           <PermissionDialog
             onGranted={handlePermissionGranted}
@@ -172,7 +227,7 @@ export function SidebarShell() {
           />
         </Show>
 
-        {/* Screenshot fallback notice (D-04) -- overlay on loading/streaming/error */}
+        {/* Screenshot fallback notice (D-04) */}
         <Show when={!needsPermission() && screenshotFailed()}>
           <div
             style={{
@@ -201,9 +256,12 @@ export function SidebarShell() {
           <LoadingDots />
         </Show>
 
-        {/* Streaming state (D-05) */}
+        {/* Streaming state — pass ttsEnabled to GuidanceList */}
         <Show when={!needsPermission() && contentState() === "streaming"}>
-          <GuidanceList streamingText={streamingText()} />
+          <GuidanceList
+            streamingText={streamingText()}
+            ttsEnabled={ttsEnabled()}
+          />
         </Show>
 
         {/* Error state (D-11) */}
@@ -257,8 +315,12 @@ export function SidebarShell() {
         }}
       >
         <TextInput
+          value={inputValue}
+          setValue={setInputValue}
           onSubmit={handleSubmit}
           disabled={needsPermission()}
+          listening={isListening()}
+          sttError={sttError()}
           ref={(el) => { inputRef = el; }}
         />
       </div>
