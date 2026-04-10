@@ -14,7 +14,7 @@
 
 use cpal::traits::{DeviceTrait, HostTrait, StreamTrait};
 use futures_util::{SinkExt, StreamExt};
-use serde::{Deserialize, Serialize};
+use serde::Deserialize;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Mutex;
 use tauri::Emitter;

@@ -1,4 +1,4 @@
-const WORKER_URL = import.meta.env.VITE_WORKER_URL || "http://localhost:8788";
+const WORKER_URL = import.meta.env.VITE_WORKER_URL || "http://localhost:8787";
 
 export const SYSTEM_PROMPT = `You are AI Buddy, a real-time software guide. The user has sent you a screenshot of their current screen along with what they want to accomplish.
 
