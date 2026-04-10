@@ -29,6 +29,19 @@
         "resizable": false,
         "skipTaskbar": true,
         "shadow": false
+      },
+      {
+        "label": "region-select",
+        "url": "/#/select",
+        "decorations": false,
+        "transparent": true,
+        "alwaysOnTop": true,
+        "focus": true,
+        "visible": false,
+        "resizable": false,
+        "skipTaskbar": true,
+        "shadow": false,
+        "fullscreen": true
       }
     ],
     "security": {

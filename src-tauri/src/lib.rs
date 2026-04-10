@@ -26,6 +26,9 @@ pub fn run() {
             preferences::cmd_get_tts_enabled,
             preferences::cmd_set_tts_enabled,
             screenshot::capture_screenshot,
+            screenshot::capture_region,
+            window::cmd_open_region_select,
+            window::cmd_close_region_select,
             voice::tts::cmd_play_tts,
         ])
         .setup(|app| {

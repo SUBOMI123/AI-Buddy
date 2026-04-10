@@ -1,4 +1,4 @@
-use tauri::{Emitter, WebviewWindow};
+use tauri::{AppHandle, Emitter, Manager, WebviewWindow};
 
 /// Toggle the overlay window visibility.
 /// When showing, positions to right edge of primary monitor and emits "overlay-shown" event.
@@ -40,4 +40,39 @@ pub fn toggle_overlay(window: &WebviewWindow) -> tauri::Result<()> {
 #[tauri::command]
 pub fn cmd_toggle_overlay(window: WebviewWindow) -> Result<(), String> {
     toggle_overlay(&window).map_err(|e| e.to_string())
+}
+
+/// Show the full-screen region-select overlay window.
+/// Positions to cover the primary monitor exactly before showing.
+/// Sets focus so Escape key events are received by the WebView. (D-10)
+#[tauri::command]
+pub async fn cmd_open_region_select(app: AppHandle) -> Result<(), String> {
+    let win = app
+        .get_webview_window("region-select")
+        .ok_or_else(|| "region-select window not found".to_string())?;
+
+    // Size to cover primary monitor exactly (Pitfall 3: never use fixed pixel dims)
+    if let Ok(Some(monitor)) = win.primary_monitor() {
+        let pos = monitor.position();
+        let size = monitor.size();
+        let _ = win.set_position(tauri::Position::Physical(
+            tauri::PhysicalPosition::new(pos.x, pos.y),
+        ));
+        let _ = win.set_size(tauri::Size::Physical(
+            tauri::PhysicalSize::new(size.width, size.height),
+        ));
+    }
+
+    win.show().map_err(|e| e.to_string())?;
+    win.set_focus().map_err(|e| e.to_string())?; // Pitfall 2: must set focus after show
+    Ok(())
+}
+
+/// Hide the region-select overlay window without destroying it. (Pitfall 5)
+#[tauri::command]
+pub async fn cmd_close_region_select(app: AppHandle) -> Result<(), String> {
+    let win = app
+        .get_webview_window("region-select")
+        .ok_or_else(|| "region-select window not found".to_string())?;
+    win.hide().map_err(|e| e.to_string())
 }
