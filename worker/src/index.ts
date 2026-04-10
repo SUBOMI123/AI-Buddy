@@ -174,20 +174,100 @@ app.post('/chat', async (c) => {
   });
 });
 
-// STT placeholder (D-11) — will be implemented in Phase 3
-app.post('/stt', (c) => {
-  return c.json(
-    { message: 'STT endpoint placeholder', status: 'not_implemented' },
-    501,
-  );
+// STT token endpoint — issues short-lived AssemblyAI streaming token (D-28)
+// Auth middleware applies globally — this route only reached by authenticated clients (T-03-04)
+app.post('/stt', async (c) => {
+  const tokenUrl = 'https://streaming.assemblyai.com/v3/token?expires_in_seconds=300';
+
+  let tokenResponse: Response;
+  try {
+    tokenResponse = await fetch(tokenUrl, {
+      method: 'GET',
+      headers: {
+        Authorization: c.env.ASSEMBLYAI_API_KEY,
+      },
+    });
+  } catch (err) {
+    console.error('AssemblyAI token fetch failed:', err);
+    return c.json({ error: 'STT service unavailable' }, 503);
+  }
+
+  if (!tokenResponse.ok) {
+    console.error('AssemblyAI token endpoint returned', tokenResponse.status);
+    return c.json({ error: 'STT token issuance failed' }, 502);
+  }
+
+  const body = await tokenResponse.json<{ token: string }>();
+
+  if (!body.token) {
+    return c.json({ error: 'STT token response missing token field' }, 502);
+  }
+
+  return c.json({ token: body.token });
 });
 
-// TTS placeholder (D-11) — will be implemented in Phase 3
-app.post('/tts', (c) => {
-  return c.json(
-    { message: 'TTS endpoint placeholder', status: 'not_implemented' },
-    501,
-  );
+// TTS proxy — streams ElevenLabs Turbo v2.5 MP3 audio (D-15, D-29)
+// Auth middleware applies globally (T-03-04 pattern covers /tts too)
+app.post('/tts', async (c) => {
+  let body: { text?: string; voice_id?: string };
+  try {
+    body = await c.req.json();
+  } catch {
+    return c.json({ error: 'Invalid JSON body' }, 400);
+  }
+
+  // T-03-05: Validate text — non-empty, max 2000 chars
+  const text = typeof body.text === 'string' ? body.text.trim() : '';
+  if (!text) {
+    return c.json({ error: 'text must be a non-empty string' }, 400);
+  }
+  if (text.length > 2000) {
+    return c.json({ error: 'text must be 2000 characters or fewer' }, 400);
+  }
+
+  // ElevenLabs voice ID — use "Rachel" (natural, clear instructional voice)
+  // voice_id: 21m00Tcm4TlvDq8ikWAM is ElevenLabs "Rachel" — clear and neutral
+  const voiceId = body.voice_id ?? '21m00Tcm4TlvDq8ikWAM';
+  const elevenUrl = `https://api.elevenlabs.io/v1/text-to-speech/${voiceId}/stream`;
+
+  let elevenResponse: Response;
+  try {
+    elevenResponse = await fetch(elevenUrl, {
+      method: 'POST',
+      headers: {
+        'xi-api-key': c.env.ELEVENLABS_API_KEY,
+        'Content-Type': 'application/json',
+        Accept: 'audio/mpeg',
+      },
+      body: JSON.stringify({
+        text,
+        model_id: 'eleven_turbo_v2_5',
+        voice_settings: {
+          stability: 0.5,
+          similarity_boost: 0.75,
+        },
+      }),
+    });
+  } catch (err) {
+    console.error('ElevenLabs request failed:', err);
+    return c.json({ error: 'TTS service unavailable' }, 503);
+  }
+
+  if (!elevenResponse.ok) {
+    const errText = await elevenResponse.text();
+    console.error('ElevenLabs returned', elevenResponse.status, errText);
+    return c.json({ error: 'TTS generation failed' }, 502);
+  }
+
+  // Stream MP3 audio back to caller
+  return new Response(elevenResponse.body, {
+    status: 200,
+    headers: {
+      'Content-Type': 'audio/mpeg',
+      'Cache-Control': 'no-cache',
+      'Transfer-Encoding': 'chunked',
+    },
+  });
 });
 
 // ---------------------------------------------------------------------------
