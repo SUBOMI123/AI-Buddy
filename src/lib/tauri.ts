@@ -165,3 +165,20 @@ export async function recordInteraction(
 export async function getMemoryContext(): Promise<string> {
   return invoke<string>("cmd_get_memory_context");
 }
+
+export interface SkillEntry {
+  task_label: string;
+  encounter_count: number;
+}
+
+export interface SkillProfile {
+  strengths: SkillEntry[];
+  recurring_struggles: SkillEntry[];
+  apps_used: string[];
+  total_interactions: number;
+}
+
+/** Returns derived skill profile from local memory DB (LEARN-03). */
+export async function getSkillProfile(): Promise<SkillProfile> {
+  return invoke<SkillProfile>("cmd_get_skill_profile");
+}
