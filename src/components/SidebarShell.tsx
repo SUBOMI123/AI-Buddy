@@ -1,6 +1,7 @@
 import { createSignal, onMount, onCleanup, Show } from "solid-js";
-import { X } from "lucide-solid";
+import { X, Settings } from "lucide-solid";
 import { DragHandle } from "./DragHandle";
+import { SettingsScreen } from "./SettingsScreen";
 import { TextInput } from "./TextInput";
 import { EmptyState, NoPermissionState } from "./EmptyState";
 import { GuidanceList } from "./GuidanceList";
@@ -61,6 +62,9 @@ export function SidebarShell() {
   const [_currentTaskLabel, setCurrentTaskLabel] = createSignal<string>("");
   // showFullStepsOverride getter unused in JSX — setter used by handleShowFullSteps to reset state
   const [_showFullStepsOverride, setShowFullStepsOverride] = createSignal(false);
+
+  // Phase 5: Settings screen (D-06)
+  const [showSettings, setShowSettings] = createSignal(false);
 
   let inputRef: HTMLInputElement | undefined;
   let unlistenOverlay: (() => void) | undefined;
@@ -347,6 +351,40 @@ export function SidebarShell() {
 
       <DragHandle />
 
+      {/* Phase 5 D-06: Settings gear icon header row */}
+      <div
+        style={{
+          display: "flex",
+          "justify-content": "flex-end",
+          "align-items": "center",
+          padding: "var(--space-xs) var(--space-md)",
+          "border-bottom": "1px solid var(--color-border)",
+          "flex-shrink": "0",
+        }}
+      >
+        <button
+          onClick={() => setShowSettings(true)}
+          aria-label="Open skill profile and settings"
+          title="Skill profile"
+          style={{
+            border: "none",
+            background: "transparent",
+            color: "var(--color-text-secondary)",
+            cursor: "pointer",
+            "min-height": "44px",
+            "min-width": "44px",
+            display: "flex",
+            "align-items": "center",
+            "justify-content": "center",
+            padding: "0",
+          }}
+        >
+          <Settings size={14} />
+        </button>
+      </div>
+
+      {/* Main content — hidden when settings open */}
+      <Show when={!showSettings()}>
       <div
         class="sidebar-content"
         style={{
@@ -571,6 +609,20 @@ export function SidebarShell() {
           regionActive={selectedRegion() !== null}
         />
       </div>
+      </Show>
+
+      {/* Settings screen — replaces full content area (D-06) */}
+      <Show when={showSettings()}>
+        <div style={{
+          flex: "1",
+          overflow: "hidden",
+          display: "flex",
+          "flex-direction": "column",
+          padding: "0 var(--space-md)",
+        }}>
+          <SettingsScreen onClose={() => setShowSettings(false)} />
+        </div>
+      </Show>
     </div>
   );
 }
