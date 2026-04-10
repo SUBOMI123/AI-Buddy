@@ -70,20 +70,18 @@ pub fn register_ptt_shortcut(app: &tauri::AppHandle) -> Result<(), Box<dyn std::
                         .to_string();
                     let app_token = crate::preferences::cmd_get_token(app_handle.clone());
 
-                    // Bridge sync shortcut callback → async PTT session via tokio runtime handle
-                    if let Ok(handle) = tokio::runtime::Handle::try_current() {
-                        handle.spawn(async move {
-                            let _ = crate::voice::ptt::start_ptt_session(
-                                app_handle,
-                                worker_url,
-                                app_token,
-                                audio_cues,
-                            )
-                            .await;
-                        });
-                    } else {
-                        eprintln!("PTT: no tokio runtime handle available");
-                    }
+                    // Bridge sync shortcut callback → async PTT session.
+                    // tauri::async_runtime::handle() always returns Tauri's tokio
+                    // handle — unlike try_current(), it works from any sync context.
+                    tauri::async_runtime::handle().spawn(async move {
+                        let _ = crate::voice::ptt::start_ptt_session(
+                            app_handle,
+                            worker_url,
+                            app_token,
+                            audio_cues,
+                        )
+                        .await;
+                    });
                 }
                 ShortcutState::Released => {
                     crate::voice::ptt::stop_ptt_session(audio_cues);
