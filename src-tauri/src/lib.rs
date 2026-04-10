@@ -1,3 +1,4 @@
+mod memory;
 mod permissions;
 mod preferences;
 mod screenshot;
