@@ -62,7 +62,12 @@ Plans:
   1. User holds a key, speaks intent, releases, and the transcribed text populates as if typed — no keyboard required
   2. Guidance text is spoken aloud via TTS at a pace and volume suitable for following along while looking at another app
   3. Voice pipeline streams STT in real-time so submission begins before the user finishes speaking (not batch-transcribed after release)
-**Plans**: TBD
+**Plans**: 3 plans
+Plans:
+- [ ] 03-01-PLAN.md — Rust PTT shortcut (Pressed+Released), cpal mic capture on std::thread, AssemblyAI WebSocket pipeline, audio cues, mic permission entries
+- [ ] 03-02-PLAN.md — Worker /stt and /tts routes implemented, Rust play_tts command, TypeScript IPC wrappers
+- [ ] 03-03-PLAN.md — SolidJS frontend wiring: TextInput PTT state, SidebarShell STT events, GuidanceList Play button
+**UI hint**: yes
 
 ### Phase 4: Screen Region Selection
 **Goal**: Users can draw a box around any part of the screen to focus the AI's attention on a specific area, producing more accurate and targeted guidance
@@ -95,6 +100,6 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5
 |-------|----------------|--------|-----------|
 | 1. Infrastructure & App Shell | 0/3 | Planning complete | - |
 | 2. Core AI Loop | 0/3 | Planning complete | - |
-| 3. Voice I/O | 0/TBD | Not started | - |
+| 3. Voice I/O | 0/3 | Planning complete | - |
 | 4. Screen Region Selection | 0/TBD | Not started | - |
 | 5. Learning & Adaptation | 0/TBD | Not started | - |
