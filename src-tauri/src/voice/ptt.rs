@@ -268,11 +268,24 @@ pub async fn start_ptt_session(
         eprintln!("PTT: waiting for Begin handshake...");
         match ws_read.next().await {
             Some(Ok(Message::Text(text))) => {
-                eprintln!("PTT: handshake msg: {}", text);
-                // Continue — Begin (or any text frame) means the session is live.
+                eprintln!("PTT: handshake text: {}", text);
             }
-            Some(Ok(_)) => {
-                eprintln!("PTT: unexpected non-text handshake frame");
+            Some(Ok(Message::Binary(bytes))) => {
+                // AssemblyAI v3 may send JSON as binary frames
+                let decoded = std::str::from_utf8(&bytes)
+                    .map(|s| s.to_string())
+                    .unwrap_or_else(|_| format!("<{} binary bytes>", bytes.len()));
+                eprintln!("PTT: handshake binary: {}", decoded);
+            }
+            Some(Ok(Message::Close(frame))) => {
+                let reason = frame.map(|f| format!("{}: {}", f.code, f.reason)).unwrap_or_default();
+                eprintln!("PTT: WS closed at handshake: {}", reason);
+                IS_PTT_ACTIVE.store(false, Ordering::SeqCst);
+                let _ = app_for_ws.emit("stt-error", format!("STT rejected: {}", reason));
+                return;
+            }
+            Some(Ok(other)) => {
+                eprintln!("PTT: handshake other frame: {:?}", other);
             }
             Some(Err(e)) => {
                 eprintln!("PTT: WS error during handshake: {}", e);
