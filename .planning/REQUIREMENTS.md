@@ -28,7 +28,7 @@
 
 ### Screen Interaction
 
-- [ ] **SCRN-01**: User can box-select or highlight a screen region to focus AI attention on a specific area
+- [x] **SCRN-01**: User can box-select or highlight a screen region to focus AI attention on a specific area
 
 ### Learning & Adaptation
 
@@ -95,7 +95,7 @@
 | CORE-05 | Phase 2 | Pending |
 | VOICE-01 | Phase 3 | Pending |
 | VOICE-02 | Phase 3 | Pending |
-| SCRN-01 | Phase 4 | Pending |
+| SCRN-01 | Phase 4 | Complete |
 | LEARN-01 | Phase 5 | Pending |
 | LEARN-02 | Phase 5 | Pending |
 | LEARN-03 | Phase 5 | Pending |

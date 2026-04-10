@@ -79,7 +79,7 @@ Plans:
   3. AI guidance explicitly references elements visible in the selected region rather than the broader screen
 **Plans**: 3 plans
 Plans:
-- [ ] 04-01-PLAN.md — Rust capture_region command, window show/hide commands, tauri.conf.json region-select window declaration, lib.rs registration
+- [x] 04-01-PLAN.md — Rust capture_region command, window show/hide commands, tauri.conf.json region-select window declaration, lib.rs registration
 - [ ] 04-02-PLAN.md — RegionSelect.tsx overlay component, index.tsx hash routing, tauri.ts IPC wrappers
 - [ ] 04-03-PLAN.md — SidebarShell region state machine, TextInput Crop button, thumbnail preview, human verification
 **UI hint**: yes
@@ -105,5 +105,5 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5
 | 1. Infrastructure & App Shell | 0/3 | Planning complete | - |
 | 2. Core AI Loop | 0/3 | Planning complete | - |
 | 3. Voice I/O | 0/3 | Planning complete | - |
-| 4. Screen Region Selection | 0/3 | Planning complete | - |
+| 4. Screen Region Selection | 1/3 | In Progress|  |
 | 5. Learning & Adaptation | 0/TBD | Not started | - |
