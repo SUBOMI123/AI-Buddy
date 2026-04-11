@@ -42,7 +42,7 @@
 
 ### Platform
 
-- [ ] **PLAT-01**: Invoking the overlay keyboard shortcut opens the panel on the monitor where the user's cursor is — not always the primary display
+- [x] **PLAT-01**: Invoking the overlay keyboard shortcut opens the panel on the monitor where the user's cursor is — not always the primary display
 
 ## Future Requirements
 
@@ -99,7 +99,7 @@
 | CTX-01 | Phase 8 | Pending |
 | CTX-02 | Phase 8 | Pending |
 | CTX-03 | Phase 8 | Pending |
-| PLAT-01 | Phase 8 | Pending |
+| PLAT-01 | Phase 8 | Complete |
 
 **Coverage:**
 - v2 requirements: 18 total

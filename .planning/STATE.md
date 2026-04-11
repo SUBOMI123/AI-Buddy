@@ -1,17 +1,17 @@
 ---
 gsd_state_version: 1.0
-milestone: v2.0
-milestone_name: Task-Native Experience
-status: roadmap_ready
-stopped_at: —
-last_updated: "2026-04-10T00:00:00.000Z"
-last_activity: 2026-04-10
+milestone: v1.0
+milestone_name: — Foundation + Core Loop + Voice + Learning
+status: executing
+stopped_at: Completed 08-01-PLAN.md — multi-monitor toggle_overlay + Physical unit fix
+last_updated: "2026-04-11T04:53:12.966Z"
+last_activity: 2026-04-11
 progress:
-  total_phases: 4
+  total_phases: 1
   completed_phases: 0
-  total_plans: 0
-  completed_plans: 0
-  percent: 0
+  total_plans: 2
+  completed_plans: 1
+  percent: 50
 ---
 
 # Project State
@@ -21,14 +21,14 @@ progress:
 See: .planning/PROJECT.md (updated 2026-04-11)
 
 **Core value:** Users complete tasks in unfamiliar software without Googling or getting stuck
-**Current focus:** Milestone v2.0 — roadmap defined, ready to plan Phase 8
+**Current focus:** Phase 08 — backend-foundations
 
 ## Current Position
 
-Phase: Not started (Phase 8 next)
-Plan: —
-Status: Roadmap ready — run `/gsd-plan-phase 8` to begin
-Last activity: 2026-04-10 — Roadmap created for v2.0 (4 phases, 18 requirements)
+Phase: 08 (backend-foundations) — EXECUTING
+Plan: 2 of 2
+Status: Ready to execute
+Last activity: 2026-04-11
 
 Progress: [░░░░░░░░░░] 0%
 
@@ -59,6 +59,7 @@ New for v2.0 (from research):
 - [v2 Research]: Screenshots in conversation history = token bloat — prior turns text-only, only current turn gets screenshot; cap at 3-5 turns
 - [v2 Research]: App detection: use app_name from OS (no permission needed); title requires Accessibility — do not use title
 - [v2 Research]: Use available_monitors() + cursor position range check instead of monitor_from_point() — avoids macOS mixed-DPI bug (Tauri issue #7890)
+- [Phase 08-01]: toggle_overlay fallback uses position (0,0) origin check instead of is_primary() — avoids potential missing method on Tauri Monitor type
 
 ### Quick Tasks Completed
 
@@ -78,6 +79,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-04-10
-Stopped at: v2.0 roadmap created — Phase 8 ready to plan
+Last session: 2026-04-11T04:53:12.963Z
+Stopped at: Completed 08-01-PLAN.md — multi-monitor toggle_overlay + Physical unit fix
 Resume file: None
