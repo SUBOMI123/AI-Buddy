@@ -26,6 +26,7 @@ import {
   prepareGuidanceContext,
   recordInteraction,
   getMemoryContext,
+  getActiveApp,
   type RegionCoords,
 } from "../lib/tauri";
 import { streamGuidance } from "../lib/ai";
@@ -65,6 +66,9 @@ export function SidebarShell() {
   // Phase 5: Settings screen (D-06)
   const [showSettings, setShowSettings] = createSignal(false);
 
+  // Phase 8: CTX-01 — detected active app name (null until overlay shown)
+  const [detectedApp, setDetectedApp] = createSignal<string | null>(null);
+
   let inputRef: HTMLInputElement | undefined;
   let unlistenOverlay: (() => void) | undefined;
   let unlistenPttStart: (() => void) | undefined;
@@ -93,7 +97,7 @@ export function SidebarShell() {
       // Default to false on error
     }
 
-    const unlisten = await onOverlayShown(() => {
+    const unlisten = await onOverlayShown(async () => {
       // Reset to idle on every open so stale error/loading states don't persist
       setContentState("empty");
       setErrorMessage("");
@@ -103,6 +107,10 @@ export function SidebarShell() {
       if (inputRef && !needsPermission()) {
         inputRef.focus();
       }
+      // CTX-01: Detect active app non-blocking — do NOT await (Pitfall 4: blocks overlay open)
+      // Fire-and-forget: signal updates asynchronously after overlay is already interactive
+      setDetectedApp(null); // reset stale value from previous session
+      getActiveApp().then((app) => setDetectedApp(app)).catch(() => setDetectedApp(null));
     });
     unlistenOverlay = unlisten;
 
@@ -275,6 +283,7 @@ export function SidebarShell() {
       tier: ctx.tier,
       memoryContext,
       taskLabel: ctx.taskLabel,
+      appContext: detectedApp() ?? undefined,  // CTX-02: active app for prompt enrichment
       onToken: (text) => {
         if (contentState() === "loading") {
           setContentState("streaming");
@@ -300,6 +309,7 @@ export function SidebarShell() {
             intent,
             streamingText(),
             ctx.tier,
+            detectedApp() ?? undefined,  // CTX-02: pass app context to memory DB
           ).catch(() => {}); // silent fail — never block the UI
         }
       },

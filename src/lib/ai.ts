@@ -38,14 +38,17 @@ export interface StreamGuidanceOptions {
   tier?: number;          // 1=full, 2=summary, 3=hints. Default: 1 (D-03)
   memoryContext?: string; // Short summary string injected into system prompt (D-08)
   taskLabel?: string;     // For post-completion recording (D-01)
+  // Phase 8: CTX-02 — active app context for prompt enrichment
+  appContext?: string;
 }
 
 export async function streamGuidance(opts: StreamGuidanceOptions): Promise<void> {
   const { token, screenshot, userIntent, onToken, onError, onDone, signal } = opts;
-  const { tier = 1, memoryContext } = opts;
+  const { tier = 1, memoryContext, appContext } = opts;
   const systemPrompt =
     SYSTEM_PROMPT +
     (TIER_SUFFIX[tier] ?? "") +
+    (appContext ? `\n\nThe user is currently working in: ${appContext}` : "") +
     (memoryContext
       ? `\n\n## User skill context\n${memoryContext}`
       : "");

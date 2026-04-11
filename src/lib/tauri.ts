@@ -179,3 +179,10 @@ export interface SkillProfile {
 export async function getSkillProfile(): Promise<SkillProfile> {
   return invoke<SkillProfile>("cmd_get_skill_profile");
 }
+
+// Phase 8: CTX-01 — OS-native active application detection
+// Returns the frontmost app name (e.g. "Code", "Terminal") or null if unavailable.
+// Uses active-win-pos-rs in Rust — no screenshot analysis (CTX-03).
+export async function getActiveApp(): Promise<string | null> {
+  return invoke<string | null>("cmd_get_active_app");
+}
