@@ -14,7 +14,9 @@ pub struct RegionCoords {
 /// When hiding, emits "overlay-hidden" event.
 /// PLAT-01: overlay opens on the monitor where the cursor is, not always primary.
 pub fn toggle_overlay(app: &AppHandle, window: &WebviewWindow) -> tauri::Result<()> {
-    if window.is_visible().unwrap_or(false) {
+    let visible = window.is_visible().unwrap_or(false);
+    eprintln!("[toggle_overlay] is_visible={}", visible);
+    if visible {
         window.hide()?;
         let _ = window.emit("overlay-hidden", ());
     } else {
@@ -40,6 +42,8 @@ pub fn toggle_overlay(app: &AppHandle, window: &WebviewWindow) -> tauri::Result<
             .or_else(|| monitors.iter().find(|m| m.position().x == 0 && m.position().y == 0))
             .or_else(|| monitors.first());
 
+        eprintln!("[toggle_overlay] cursor={:?} monitors={}", cursor, monitors.len());
+        let mut geometry: Option<(i32, i32, u32, u32)> = None;
         if let Some(monitor) = monitor {
             let pos = monitor.position();
             let size = monitor.size();
@@ -56,17 +60,92 @@ pub fn toggle_overlay(app: &AppHandle, window: &WebviewWindow) -> tauri::Result<
             let x = pos.x + size.width as i32 - window_width_physical as i32;
             let y = pos.y + menu_bar_height_physical;
 
+            eprintln!("[toggle_overlay] monitor pos={:?} size={:?} scale={} → window x={} y={} w={} h={}", pos, size, scale, x, y, window_width_physical, height_physical);
+
+            // Capture geometry — applied on main thread below (AppKit requires it).
+            geometry = Some((x, y, window_width_physical, height_physical));
+        } else {
+            eprintln!("[toggle_overlay] WARNING: no monitor found, showing without repositioning");
+        }
+
+        // All AppKit operations must run on the main thread.
+        // orderFrontRegardless is the correct API for overlay apps on macOS Sonoma+:
+        // it brings the window to front at its level WITHOUT requiring app activation,
+        // so the user's current app keeps focus. activateIgnoringOtherApps steals
+        // focus and is wrong for a sidebar UX.
+        // Set position/size before entering main-thread block.
+        // Tauri's own methods handle thread dispatch internally and must NOT be
+        // called from within run_on_main_thread (risk of GCD deadlock on macOS).
+        if let Some((x, y, w, h)) = geometry {
             let _ = window.set_position(tauri::Position::Physical(
                 tauri::PhysicalPosition::new(x, y),
             ));
             let _ = window.set_size(tauri::Size::Physical(
-                tauri::PhysicalSize::new(window_width_physical, height_physical),
+                tauri::PhysicalSize::new(w, h),
             ));
+            eprintln!("[toggle_overlay] set_position/size called: x={} y={} w={} h={}", x, y, w, h);
         }
 
-        window.show()?;
-        window.set_focus()?;
-        let _ = window.emit("overlay-shown", ());
+        let window_main = window.clone();
+        window.run_on_main_thread(move || {
+            // Log actual position to verify it stuck
+            if let Ok(pos) = window_main.outer_position() {
+                eprintln!("[toggle_overlay] actual outer_position after set: {:?}", pos);
+            }
+
+            // show() only — do NOT call set_always_on_top here.
+            // set_always_on_top(true) maps to NSFloatingWindowLevel=3 and would
+            // RESET our level-25 if it fires after our setLevel:25 objc call.
+            let _ = window_main.show();
+
+            // Apply vibrancy AFTER show() — NSVisualEffectView requires an on-screen
+            // backing store. Calling it before show() is a silent no-op.
+            #[cfg(target_os = "macos")]
+            {
+                use window_vibrancy::{apply_vibrancy, NSVisualEffectMaterial};
+                let vibrancy_result = apply_vibrancy(&window_main, NSVisualEffectMaterial::Sidebar, None, Some(10.0));
+                eprintln!("[toggle_overlay] apply_vibrancy result: {:?}", vibrancy_result.is_ok());
+            }
+
+            // Raise to NSStatusWindowLevel (25) — above ALL normal app windows
+            // including VS Code, browsers, Finder, Notion etc.
+            // NSFloatingWindowLevel (3) is not sufficient: frontmost apps can
+            // override it. NSStatusWindowLevel sits above all normal app windows
+            // and is the correct level for overlay/HUD apps (Alfred, Raycast, etc.).
+            #[cfg(target_os = "macos")]
+            {
+                use objc::{msg_send, sel, sel_impl};
+                if let Ok(ns_window_ptr) = window_main.ns_window() {
+                    let ns_window = ns_window_ptr as *mut objc::runtime::Object;
+                    if !ns_window.is_null() {
+                        unsafe {
+                            // NSStatusWindowLevel = 25: above all normal app windows.
+                            let _: () = msg_send![ns_window, setLevel: 25_i64];
+                            let actual_level: i64 = msg_send![ns_window, level];
+                            eprintln!("[toggle_overlay] window level after setLevel:25 = {}", actual_level);
+
+                            // NSWindowCollectionBehavior flags (bitfield):
+                            //   CanJoinAllSpaces     = 1   — visible on every Space
+                            //   Stationary           = 16  — stays put when switching Spaces
+                            //   IgnoresCycle         = 64  — excluded from Exposé cycling
+                            //   FullScreenAuxiliary  = 256 — appears alongside full-screen apps
+                            // Total = 337
+                            let _: () = msg_send![ns_window, setCollectionBehavior: 337_u64];
+                            let actual_behavior: u64 = msg_send![ns_window, collectionBehavior];
+                            eprintln!("[toggle_overlay] collectionBehavior after set = {}", actual_behavior);
+
+                            // orderFrontRegardless: brings window to front without
+                            // activating the app (no focus steal).
+                            let _: () = msg_send![ns_window, orderFrontRegardless];
+                        }
+                        eprintln!("[toggle_overlay] orderFrontRegardless called");
+                    }
+                }
+            }
+
+            let _ = window_main.emit("overlay-shown", ());
+            eprintln!("[toggle_overlay] main-thread show done, is_visible={:?}", window_main.is_visible());
+        })?;
     }
     Ok(())
 }
@@ -142,4 +221,30 @@ pub async fn cmd_cancel_region(app: AppHandle) -> Result<(), String> {
     }
     app.emit("region-cancelled", ())
         .map_err(|e| e.to_string())
+}
+
+/// Apply NSWindowLevel and NSWindowCollectionBehavior to the overlay window at app startup.
+/// macOS requires collection behavior to be registered at window creation time — before the
+/// user switches to a full-screen Space — so the window is admitted into those Spaces.
+/// This is a registration-only call: it does NOT show, focus, or present the window.
+pub fn setup_overlay_window(window: &WebviewWindow) -> tauri::Result<()> {
+    #[cfg(target_os = "macos")]
+    {
+        let window_clone = window.clone();
+        window.run_on_main_thread(move || {
+            use objc::{msg_send, sel, sel_impl};
+            if let Ok(ns_window_ptr) = window_clone.ns_window() {
+                let ns_window = ns_window_ptr as *mut objc::runtime::Object;
+                if !ns_window.is_null() {
+                    unsafe {
+                        let _: () = msg_send![ns_window, setLevel: 25_i64];
+                        eprintln!("[setup_overlay_window] setLevel:25 applied");
+                        let _: () = msg_send![ns_window, setCollectionBehavior: 337_u64];
+                        eprintln!("[setup_overlay_window] setCollectionBehavior:337 applied");
+                    }
+                }
+            }
+        })?;
+    }
+    Ok(())
 }

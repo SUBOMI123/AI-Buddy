@@ -56,6 +56,15 @@ pub fn run() {
             // Create system tray
             tray::create_tray(app.handle())?;
 
+            // Apply overlay window collection behavior at startup so macOS admits
+            // the window into full-screen Spaces before the user first shows it.
+            if let Some(overlay_win) = app.get_webview_window("overlay") {
+                window::setup_overlay_window(&overlay_win)
+                    .map_err(|e| Box::new(std::io::Error::new(std::io::ErrorKind::Other, e.to_string())))?;
+            } else {
+                eprintln!("[setup] WARNING: overlay window not found, skipping setup_overlay_window");
+            }
+
             // Register global shortcut from preferences (per D-06)
             shortcut::register_shortcut(app.handle())
                 .map_err(|e| Box::new(std::io::Error::new(std::io::ErrorKind::Other, e.to_string())))?;
