@@ -121,7 +121,7 @@ Plans:
   2. WORKER_URL has a single config source used by both frontend (Vite env) and Rust backend
   3. Dead exports (`closeRegionSelect`, `onOverlayHidden`) removed from tauri.ts
   4. KV namespace ID, auto-updater endpoint, and wrangler.toml placeholders documented with clear replacement instructions
-**Plans**: 0 plans
+**Plans**: 1 plan
 Plans:
 - [ ] 07-01-PLAN.md — CORS fix, WORKER_URL unification, dead export removal, placeholder documentation
 **UI hint**: no
