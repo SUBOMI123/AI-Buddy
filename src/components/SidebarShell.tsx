@@ -82,106 +82,131 @@ export function SidebarShell() {
   // Each submitIntent call captures its own generation; stale callbacks are discarded.
   let submitGen = 0;
 
-  onMount(async () => {
-    try {
-      const hasPermission = await checkScreenPermission();
-      if (hasPermission) {
-        setNeedsPermission(false);
-      }
-    } catch {
-      // Permission check failed, keep dialog showing
-    }
+  onMount(() => {
+    // WR-02: Use a cancelled flag + inline cleanups array so that if the component
+    // unmounts (hot-reload, fast close) while the async setup is still awaiting,
+    // any listeners registered after that point are immediately unlistened.
+    // Without this, the onCleanup below runs before the awaits resolve, leaving
+    // listeners alive for the full WebView lifetime.
+    let cancelled = false;
+    const cleanups: Array<() => void> = [];
 
-    // Load TTS preference (D-12, D-14)
-    try {
-      const enabled = await getTtsEnabled();
-      setTtsEnabled(enabled);
-    } catch {
-      // Default to false on error
-    }
-
-    const unlisten = await onOverlayShown(async () => {
-      // Reset to idle on every open so stale error/loading states don't persist
-      setContentState("empty");
-      setErrorMessage("");
-      setStreamingText("");
-      abortController?.abort();
-      abortController = null;
-      if (inputRef && !needsPermission()) {
-        inputRef.focus();
-      }
-      // CTX-01: Detect active app non-blocking — do NOT await (Pitfall 4: blocks overlay open)
-      // Fire-and-forget: signal updates asynchronously after overlay is already interactive
-      setDetectedApp(null); // reset stale value from previous session
-      getActiveApp().then((app) => setDetectedApp(app)).catch(() => setDetectedApp(null));
-    });
-    unlistenOverlay = unlisten;
-
-    // Phase 3: STT event listeners
-    // ptt-start fires immediately on key press so mic indicator appears at once
-    unlistenPttStart = await onPttStart(() => {
-      setIsListening(true);
-      setSttError("");
-    });
-
-    // D-05, D-06, D-07: Partial transcripts replace field value in real-time
-    unlistenSttPartial = await onSttPartial((transcript) => {
-      setInputValue(transcript);  // D-07: full partial (not delta) — overwrite
-      setSttError("");             // clear any previous error on new speech
-      setIsListening(true);        // D-08: mic indicator active during PTT
-    });
-
-    // D-09: Final transcript stays in field — user must press Enter to submit
-    // D-19: PTT does NOT clear field — transcript stays as-is on release
-    unlistenSttFinal = await onSttFinal((transcript) => {
-      if (transcript) setInputValue(transcript); // only update if non-empty (D-11, D-19)
-      setIsListening(false);       // D-26: return mic indicator to idle
-      setContentState("empty");    // return to idle (NOT auto-submit — D-09)
-    });
-
-    // D-24, D-25, D-26: STT error — show message, preserve text, return to idle
-    unlistenSttError = await onSttError((error) => {
-      console.error("STT error:", error);
-      setSttError("Didn't catch that — try again"); // D-24
-      setIsListening(false);       // D-26: mic indicator returns to idle
-      setContentState("empty");    // D-26: return to idle state
-      // D-25: inputValue is NOT cleared — preserve user's partial text
-    });
-
-    // Phase 4: Region selection listeners
-    // region-selected fires when user finishes drawing in the region-select window
-    // RegionSelect closes its own window before emitting, so no closeRegionSelect() needed here
-    unlistenRegionSelected = await onRegionSelected(async (coords) => {
-      setSelectedRegion(coords);
-      setContentState("empty");  // return sidebar to idle with thumbnail visible
-
-      // Capture thumbnail immediately so user sees what Claude will see (D-05)
+    (async () => {
       try {
-        const b64 = await captureRegion(coords);
-        setThumbnailB64(b64);
+        const hasPermission = await checkScreenPermission();
+        if (hasPermission) {
+          setNeedsPermission(false);
+        }
       } catch {
-        // Thumbnail capture failed — still allow submission with stored coords
-        setThumbnailB64(null);
+        // Permission check failed, keep dialog showing
       }
-    });
 
-    // region-cancelled fires on Esc or too-small drag (D-10)
-    // RegionSelect closes its own window before emitting
-    unlistenRegionCancelled = await onRegionCancelled(() => {
-      setContentState("empty");  // restore sidebar (Constraint 6: sidebar MUST reappear)
-      // Do NOT set selectedRegion — region stays null, fallback to full-screen (D-04)
-    });
-  });
+      // Load TTS preference (D-12, D-14)
+      try {
+        const enabled = await getTtsEnabled();
+        setTtsEnabled(enabled);
+      } catch {
+        // Default to false on error
+      }
 
-  onCleanup(() => {
-    unlistenOverlay?.();
-    unlistenPttStart?.();
-    unlistenSttPartial?.();
-    unlistenSttFinal?.();
-    unlistenSttError?.();
-    unlistenRegionSelected?.();
-    unlistenRegionCancelled?.();
-    abortController?.abort();
+      const unlisten = await onOverlayShown(async () => {
+        // Reset to idle on every open so stale error/loading states don't persist
+        setContentState("empty");
+        setErrorMessage("");
+        setStreamingText("");
+        abortController?.abort();
+        abortController = null;
+        if (inputRef && !needsPermission()) {
+          inputRef.focus();
+        }
+        // CTX-01: Detect active app non-blocking — do NOT await (Pitfall 4: blocks overlay open)
+        // Fire-and-forget: signal updates asynchronously after overlay is already interactive
+        setDetectedApp(null); // reset stale value from previous session
+        getActiveApp().then((app) => setDetectedApp(app)).catch(() => setDetectedApp(null));
+      });
+      if (cancelled) { unlisten(); return; }
+      unlistenOverlay = unlisten;
+      cleanups.push(unlisten);
+
+      // Phase 3: STT event listeners
+      // ptt-start fires immediately on key press so mic indicator appears at once
+      const ulPttStart = await onPttStart(() => {
+        setIsListening(true);
+        setSttError("");
+      });
+      if (cancelled) { ulPttStart(); return; }
+      unlistenPttStart = ulPttStart;
+      cleanups.push(ulPttStart);
+
+      // D-05, D-06, D-07: Partial transcripts replace field value in real-time
+      const ulSttPartial = await onSttPartial((transcript) => {
+        setInputValue(transcript);  // D-07: full partial (not delta) — overwrite
+        setSttError("");             // clear any previous error on new speech
+        setIsListening(true);        // D-08: mic indicator active during PTT
+      });
+      if (cancelled) { ulSttPartial(); return; }
+      unlistenSttPartial = ulSttPartial;
+      cleanups.push(ulSttPartial);
+
+      // D-09: Final transcript stays in field — user must press Enter to submit
+      // D-19: PTT does NOT clear field — transcript stays as-is on release
+      const ulSttFinal = await onSttFinal((transcript) => {
+        if (transcript) setInputValue(transcript); // only update if non-empty (D-11, D-19)
+        setIsListening(false);       // D-26: return mic indicator to idle
+        setContentState("empty");    // return to idle (NOT auto-submit — D-09)
+      });
+      if (cancelled) { ulSttFinal(); return; }
+      unlistenSttFinal = ulSttFinal;
+      cleanups.push(ulSttFinal);
+
+      // D-24, D-25, D-26: STT error — show message, preserve text, return to idle
+      const ulSttError = await onSttError((error) => {
+        if (import.meta.env.DEV) console.error("STT error:", error);
+        setSttError("Didn't catch that — try again"); // D-24
+        setIsListening(false);       // D-26: mic indicator returns to idle
+        setContentState("empty");    // D-26: return to idle state
+        // D-25: inputValue is NOT cleared — preserve user's partial text
+      });
+      if (cancelled) { ulSttError(); return; }
+      unlistenSttError = ulSttError;
+      cleanups.push(ulSttError);
+
+      // Phase 4: Region selection listeners
+      // region-selected fires when user finishes drawing in the region-select window
+      // RegionSelect closes its own window before emitting, so no closeRegionSelect() needed here
+      const ulRegionSelected = await onRegionSelected(async (coords) => {
+        setSelectedRegion(coords);
+        setContentState("empty");  // return sidebar to idle with thumbnail visible
+
+        // Capture thumbnail immediately so user sees what Claude will see (D-05)
+        try {
+          const b64 = await captureRegion(coords);
+          setThumbnailB64(b64);
+        } catch {
+          // Thumbnail capture failed — still allow submission with stored coords
+          setThumbnailB64(null);
+        }
+      });
+      if (cancelled) { ulRegionSelected(); return; }
+      unlistenRegionSelected = ulRegionSelected;
+      cleanups.push(ulRegionSelected);
+
+      // region-cancelled fires on Esc or too-small drag (D-10)
+      // RegionSelect closes its own window before emitting
+      const ulRegionCancelled = await onRegionCancelled(() => {
+        setContentState("empty");  // restore sidebar (Constraint 6: sidebar MUST reappear)
+        // Do NOT set selectedRegion — region stays null, fallback to full-screen (D-04)
+      });
+      if (cancelled) { ulRegionCancelled(); return; }
+      unlistenRegionCancelled = ulRegionCancelled;
+      cleanups.push(ulRegionCancelled);
+    })();
+
+    onCleanup(() => {
+      cancelled = true;
+      cleanups.forEach((fn) => fn());
+      abortController?.abort();
+    });
   });
 
   const handlePermissionGranted = () => {
