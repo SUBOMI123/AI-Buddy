@@ -123,7 +123,7 @@ Plans:
   4. KV namespace ID, auto-updater endpoint, and wrangler.toml placeholders documented with clear replacement instructions
 **Plans**: 1 plan
 Plans:
-- [ ] 07-01-PLAN.md — CORS fix, WORKER_URL unification, dead export removal, placeholder documentation
+- [x] 07-01-PLAN.md — CORS fix, WORKER_URL unification, dead export removal, placeholder documentation
 **UI hint**: no
 
 ## Progress
@@ -139,4 +139,4 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7
 | 4. Screen Region Selection | 3/3 | Complete   | 2026-04-10 |
 | 5. Learning & Adaptation | 3/3 | Complete | 2026-04-10 |
 | 6. Voice Settings | 1/1 | Complete | 2026-04-11 |
-| 7. Production Readiness | 0/1 | Planned | - |
+| 7. Production Readiness | 1/1 | Complete | 2026-04-11 |
