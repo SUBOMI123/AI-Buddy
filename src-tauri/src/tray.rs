@@ -19,7 +19,7 @@ pub fn create_tray(app: &AppHandle) -> tauri::Result<()> {
         .on_menu_event(move |app, event| match event.id.as_ref() {
             "show_hide" => {
                 if let Some(window) = app.get_webview_window("overlay") {
-                    let _ = crate::window::toggle_overlay(&window);
+                    let _ = crate::window::toggle_overlay(app, &window);
                 }
             }
             "quit" => {
