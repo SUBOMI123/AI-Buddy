@@ -109,7 +109,7 @@ Plans:
   3. `_currentTaskLabel` signal is either surfaced in settings or removed (no dead code)
 **Plans**: 1 plan
 Plans:
-- [ ] 06-01-PLAN.md — SettingsScreen voice preferences section (TTS toggle, PTT key input), settings persistence, _currentTaskLabel cleanup
+- [x] 06-01-PLAN.md — SettingsScreen voice preferences section (TTS toggle, PTT key input), settings persistence, _currentTaskLabel cleanup
 **UI hint**: yes
 
 ### Phase 7: Production Readiness
@@ -138,5 +138,5 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7
 | 3. Voice I/O | 0/3 | Planning complete | - |
 | 4. Screen Region Selection | 3/3 | Complete   | 2026-04-10 |
 | 5. Learning & Adaptation | 3/3 | Complete | 2026-04-10 |
-| 6. Voice Settings | 0/1 | Planning complete | - |
+| 6. Voice Settings | 1/1 | Complete | 2026-04-11 |
 | 7. Production Readiness | 0/1 | Planned | - |
