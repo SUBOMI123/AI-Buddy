@@ -276,6 +276,11 @@ export function SidebarShell() {
     }
 
     // 3. Stream guidance from Claude via Worker
+    // CR-02: accumulate tokens locally so onDone reads the complete text, not the signal.
+    // SolidJS signals are synchronous but onDone arrives via a separate micro-task boundary
+    // from the SSE reader loop; reading the signal in onDone may capture an incomplete value.
+    let accumulatedText = "";
+
     await streamGuidance({
       token,
       screenshot,
@@ -285,10 +290,11 @@ export function SidebarShell() {
       taskLabel: ctx.taskLabel,
       appContext: detectedApp() ?? undefined,  // CTX-02: active app for prompt enrichment
       onToken: (text) => {
+        accumulatedText += text;               // local accumulator — synchronous, no signal read lag
         if (contentState() === "loading") {
           setContentState("streaming");
         }
-        setStreamingText((prev) => prev + text);
+        setStreamingText(accumulatedText);     // signal for UI display
       },
       onError: (err) => {
         setErrorMessage(err);
@@ -300,14 +306,14 @@ export function SidebarShell() {
         }
         // Auto-play full guidance on arrival if TTS enabled (D-12: silent fail)
         if (ttsEnabled()) {
-          playTts(streamingText()).catch(() => {});
+          playTts(accumulatedText).catch(() => {});  // use local, not signal
         }
         // Phase 5: Record interaction fire-and-forget (D-01)
         if (ctx.taskLabel) {
           recordInteraction(
             ctx.taskLabel,
             intent,
-            streamingText(),
+            accumulatedText,                         // use local, not signal
             ctx.tier,
             detectedApp() ?? undefined,  // CTX-02: pass app context to memory DB
           ).catch(() => {}); // silent fail — never block the UI
