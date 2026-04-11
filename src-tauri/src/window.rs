@@ -122,6 +122,11 @@ pub async fn cmd_confirm_region(
     width: u32,
     height: u32,
 ) -> Result<(), String> {
+    // WR-03: Reject zero-dimension regions before they reach xcap — a 0×0 crop can panic
+    // or produce a 0-byte buffer that causes base64/JPEG encode errors downstream.
+    if width == 0 || height == 0 {
+        return Err("Region dimensions must be greater than zero".to_string());
+    }
     if let Some(win) = app.get_webview_window("region-select") {
         let _ = win.hide();
     }
