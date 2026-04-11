@@ -1,8 +1,10 @@
 import { createSignal, onMount, Show, For } from "solid-js";
-import { getSkillProfile, type SkillProfile } from "../lib/tauri";
+import { getSkillProfile, getPttKey, updatePttShortcut, type SkillProfile } from "../lib/tauri";
 
 interface SettingsScreenProps {
   onClose: () => void;
+  ttsEnabled: boolean;
+  onTtsChange: (val: boolean) => void;
 }
 
 export function SettingsScreen(props: SettingsScreenProps) {
@@ -10,7 +12,19 @@ export function SettingsScreen(props: SettingsScreenProps) {
   const [loading, setLoading] = createSignal(true);
   const [error, setError] = createSignal("");
 
+  const [pttKey, setPttKeyLocal] = createSignal("");
+  const [pttSaveError, setPttSaveError] = createSignal("");
+  const [pttSaving, setPttSaving] = createSignal(false);
+
   onMount(async () => {
+    // Load PTT key
+    try {
+      const key = await getPttKey();
+      setPttKeyLocal(key);
+    } catch {
+      // Leave empty — will show placeholder
+    }
+
     try {
       const data = await getSkillProfile();
       setProfile(data);
@@ -20,6 +34,22 @@ export function SettingsScreen(props: SettingsScreenProps) {
       setLoading(false);
     }
   });
+
+  const handlePttSave = async () => {
+    const key = pttKey().trim();
+    if (!key) return;
+    setPttSaving(true);
+    setPttSaveError("");
+    try {
+      await updatePttShortcut(key);
+      setPttSaveError("");
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : String(e);
+      setPttSaveError(msg || "Invalid key format");
+    } finally {
+      setPttSaving(false);
+    }
+  };
 
   return (
     <div style={{
@@ -59,6 +89,80 @@ export function SettingsScreen(props: SettingsScreenProps) {
 
       {/* Scrollable content */}
       <div style={{ "overflow-y": "auto", flex: "1" }}>
+        {/* Voice section — always visible, independent of skill profile load */}
+        <section style={{ "margin-bottom": "var(--space-lg)" }}>
+          <h3 style={{
+            "font-size": "var(--font-size-label)",
+            "font-weight": "var(--font-weight-medium)",
+            color: "var(--color-text-secondary)",
+            "text-transform": "uppercase",
+            "letter-spacing": "0.05em",
+            "margin-bottom": "var(--space-sm)",
+          }}>Voice</h3>
+
+          {/* TTS auto-play row */}
+          <div style={{
+            display: "flex",
+            "align-items": "center",
+            "justify-content": "space-between",
+            padding: "var(--space-xs) 0",
+            "margin-bottom": "var(--space-xs)",
+          }}>
+            <span style={{ "font-size": "var(--font-size-body)", color: "var(--color-text-primary)" }}>
+              Auto-play guidance
+            </span>
+            <input
+              type="checkbox"
+              checked={props.ttsEnabled}
+              onChange={(e) => props.onTtsChange(e.currentTarget.checked)}
+              style={{ cursor: "pointer", "flex-shrink": "0" }}
+              aria-label="Enable TTS auto-play"
+            />
+          </div>
+
+          {/* PTT key row */}
+          <div style={{
+            display: "flex",
+            "flex-direction": "column",
+            gap: "var(--space-xs)",
+            padding: "var(--space-xs) 0",
+          }}>
+            <span style={{ "font-size": "var(--font-size-body)", color: "var(--color-text-primary)" }}>
+              Push-to-talk key
+            </span>
+            <input
+              type="text"
+              value={pttKey()}
+              onInput={(e) => setPttKeyLocal(e.currentTarget.value)}
+              onBlur={handlePttSave}
+              onKeyDown={(e) => { if (e.key === "Enter") { e.currentTarget.blur(); } }}
+              placeholder="e.g. CommandOrControl+Shift+V"
+              disabled={pttSaving()}
+              style={{
+                "font-size": "var(--font-size-label)",
+                color: "var(--color-text-primary)",
+                background: "var(--color-surface)",
+                border: `1px solid ${pttSaveError() ? "var(--color-accent)" : "var(--color-border)"}`,
+                "border-radius": "var(--radius-sm)",
+                padding: "var(--space-xs) var(--space-sm)",
+                width: "100%",
+                "box-sizing": "border-box",
+              }}
+              aria-label="Push-to-talk key binding"
+            />
+            <Show when={pttSaveError().length > 0}>
+              <span style={{ "font-size": "var(--font-size-label)", color: "var(--color-accent)" }}>
+                {pttSaveError()}
+              </span>
+            </Show>
+            <Show when={pttSaving()}>
+              <span style={{ "font-size": "var(--font-size-label)", color: "var(--color-text-secondary)" }}>
+                Saving...
+              </span>
+            </Show>
+          </div>
+        </section>
+
         <Show when={loading()}>
           <p style={{ color: "var(--color-text-secondary)", "font-size": "var(--font-size-label)" }}>
             Loading...

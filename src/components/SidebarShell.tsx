@@ -17,6 +17,7 @@ import {
   onSttFinal,
   onSttError,
   getTtsEnabled,
+  setTtsEnabled as setTtsEnabledIpc,
   playTts,
   openRegionSelect,
   captureRegion,
@@ -621,7 +622,14 @@ export function SidebarShell() {
           "flex-direction": "column",
           padding: "0 var(--space-md)",
         }}>
-          <SettingsScreen onClose={() => setShowSettings(false)} />
+          <SettingsScreen
+            onClose={() => setShowSettings(false)}
+            ttsEnabled={ttsEnabled()}
+            onTtsChange={(val: boolean) => {
+              setTtsEnabled(val);                       // update in-memory signal immediately
+              setTtsEnabledIpc(val).catch(() => {});    // persist to disk (silent fail)
+            }}
+          />
         </div>
       </Show>
     </div>
