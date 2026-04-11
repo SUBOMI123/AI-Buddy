@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: — Foundation + Core Loop + Voice + Learning
-status: executing
-stopped_at: Completed 08-01-PLAN.md — multi-monitor toggle_overlay + Physical unit fix
-last_updated: "2026-04-11T04:53:12.966Z"
+status: verifying
+stopped_at: Completed 08-02-PLAN.md — app context detection via active-win-pos-rs
+last_updated: "2026-04-11T04:57:06.213Z"
 last_activity: 2026-04-11
 progress:
   total_phases: 1
-  completed_phases: 0
+  completed_phases: 1
   total_plans: 2
-  completed_plans: 1
-  percent: 50
+  completed_plans: 2
+  percent: 100
 ---
 
 # Project State
@@ -27,7 +27,7 @@ See: .planning/PROJECT.md (updated 2026-04-11)
 
 Phase: 08 (backend-foundations) — EXECUTING
 Plan: 2 of 2
-Status: Ready to execute
+Status: Phase complete — ready for verification
 Last activity: 2026-04-11
 
 Progress: [░░░░░░░░░░] 0%
@@ -60,6 +60,9 @@ New for v2.0 (from research):
 - [v2 Research]: App detection: use app_name from OS (no permission needed); title requires Accessibility — do not use title
 - [v2 Research]: Use available_monitors() + cursor position range check instead of monitor_from_point() — avoids macOS mixed-DPI bug (Tauri issue #7890)
 - [Phase 08-01]: toggle_overlay fallback uses position (0,0) origin check instead of is_primary() — avoids potential missing method on Tauri Monitor type
+- [Phase 08]: app_name trimmed and capped at 100 chars before prompt injection (T-08-02-01 mitigation)
+- [Phase 08]: Only win.app_name read in app_context.rs — win.title never accessed to avoid Screen Recording permission (T-08-02-02)
+- [Phase 08]: getActiveApp() called fire-and-forget in onOverlayShown — never awaited to keep overlay open latency unaffected (T-08-02-03)
 
 ### Quick Tasks Completed
 
@@ -79,6 +82,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-04-11T04:53:12.963Z
-Stopped at: Completed 08-01-PLAN.md — multi-monitor toggle_overlay + Physical unit fix
+Last session: 2026-04-11T04:57:06.211Z
+Stopped at: Completed 08-02-PLAN.md — app context detection via active-win-pos-rs
 Resume file: None

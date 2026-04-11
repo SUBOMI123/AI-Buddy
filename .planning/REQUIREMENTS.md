@@ -36,9 +36,9 @@
 
 ### Context Awareness
 
-- [ ] **CTX-01**: App detects the name of the currently active application when the overlay is invoked — used to enrich the AI prompt context
-- [ ] **CTX-02**: When the active app is detected, AI-suggested quick actions reflect the app context (e.g. "Debug error" in Terminal, "Explain layer" in Figma) rather than generic actions
-- [ ] **CTX-03**: App detection is sourced from the OS (Rust layer) — must not rely on AI classification of screenshots
+- [x] **CTX-01**: App detects the name of the currently active application when the overlay is invoked — used to enrich the AI prompt context
+- [x] **CTX-02**: When the active app is detected, AI-suggested quick actions reflect the app context (e.g. "Debug error" in Terminal, "Explain layer" in Figma) rather than generic actions
+- [x] **CTX-03**: App detection is sourced from the OS (Rust layer) — must not rely on AI classification of screenshots
 
 ### Platform
 
@@ -96,9 +96,9 @@
 | STEP-01 | Phase 10 | Pending |
 | STEP-02 | Phase 10 | Pending |
 | STEP-03 | Phase 10 | Pending |
-| CTX-01 | Phase 8 | Pending |
-| CTX-02 | Phase 8 | Pending |
-| CTX-03 | Phase 8 | Pending |
+| CTX-01 | Phase 8 | Complete |
+| CTX-02 | Phase 8 | Complete |
+| CTX-03 | Phase 8 | Complete |
 | PLAT-01 | Phase 8 | Complete |
 
 **Coverage:**

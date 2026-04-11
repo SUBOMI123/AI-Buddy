@@ -31,7 +31,7 @@ Five phases take AI Buddy from nothing to a complete v1. Phase 1 establishes the
 
 ## Phases
 
-- [ ] **Phase 8: Backend Foundations** — App detection (active window name via Rust) + multi-monitor overlay positioning via cursor, with pre-existing window.rs unit bug fixed
+- [x] **Phase 8: Backend Foundations** — App detection (active window name via Rust) + multi-monitor overlay positioning via cursor, with pre-existing window.rs unit bug fixed (completed 2026-04-11)
 - [ ] **Phase 9: State Machine + Conversation Continuity** — SidebarShell state machine stabilized, multi-turn conversation history with token-safe history, task header, session reset logic
 - [ ] **Phase 10: Step Tracking + Response Quality** — GuidanceList step checklist, click-to-mark/jump, response history scrollback, step-first response enforcement, inline copy buttons
 - [ ] **Phase 11: Action-First UI** — QuickActions component with context-sensitive fixed buttons, async AI-suggested actions, "try another way" button
@@ -50,7 +50,7 @@ Five phases take AI Buddy from nothing to a complete v1. Phase 1 establishes the
 **Plans**: 2 plans
 Plans:
 - [x] 08-01-PLAN.md — Multi-monitor overlay positioning: cursor-based monitor detection + Physical-unit fix in window.rs
-- [ ] 08-02-PLAN.md — App detection: active-win-pos-rs Tauri command + frontend signal + AI prompt injection
+- [x] 08-02-PLAN.md — App detection: active-win-pos-rs Tauri command + frontend signal + AI prompt injection
 **UI hint**: no
 
 ### Phase 9: State Machine + Conversation Continuity
@@ -94,7 +94,7 @@ Plans:
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 8. Backend Foundations | 1/2 | In Progress|  |
+| 8. Backend Foundations | 2/2 | Complete   | 2026-04-11 |
 | 9. State Machine + Conversation Continuity | 0/? | Not started | - |
 | 10. Step Tracking + Response Quality | 0/? | Not started | - |
 | 11. Action-First UI | 0/? | Not started | - |
