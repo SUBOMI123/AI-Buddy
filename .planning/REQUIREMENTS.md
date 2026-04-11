@@ -1,0 +1,111 @@
+# Requirements: AI Buddy
+
+**Defined:** 2026-04-11
+**Core Value:** Users complete tasks in unfamiliar software without Googling or getting stuck
+
+## v2 Requirements
+
+### Task Anchoring
+
+- [ ] **TASK-01**: When guidance is generated, a task header displays at the top of the panel summarizing the current task (e.g., "Debugging terminal error") and persists across follow-ups until session resets
+
+### Action-First UI
+
+- [ ] **ACTN-01**: When the overlay is open with no active query, user sees quick action buttons (Fix, Explain, Optimize, Ask) instead of a blank text prompt
+- [ ] **ACTN-02**: After making a screen region selection, quick action buttons appear pre-filled for that selection — no typing required to trigger guidance
+- [ ] **ACTN-03**: After receiving guidance, user can press "Try another way" to get a different approach without re-describing the task
+- [ ] **ACTN-04**: Fixed action buttons render instantly (<100ms); AI-suggested context-specific actions append asynchronously without blocking interaction
+
+### Response Quality
+
+- [ ] **RESP-01**: All AI guidance responses begin with numbered steps on line 1 — no intro sentence, no screen description, no preamble
+- [ ] **RESP-02**: Every code snippet or terminal command in guidance has a one-click copy button — no selecting and copying manually
+- [ ] **RESP-03**: Each step contains exactly one actionable instruction — no compound steps combining multiple actions
+
+### Session
+
+- [ ] **SESS-01**: Follow-up queries are resolved using structured task context (current intent + last guidance steps + selected region) — not full conversation history
+- [ ] **SESS-02**: Previous guidance exchanges in the current session are scrollable above the current response — session history visible in-overlay
+- [ ] **SESS-03**: Session context resets when user submits a new unrelated intent — old task context does not bleed into a new task
+
+### Step Tracking
+
+- [ ] **STEP-01**: Guidance steps are rendered as a checklist — current step highlighted, completed steps checkmarked
+- [ ] **STEP-02**: User can click any step to mark it complete or jump back to a previous step — non-linear execution supported
+- [ ] **STEP-03**: When a new response is generated (including follow-ups), step progress resets unless the user explicitly continues the same task step
+
+### Context Awareness
+
+- [ ] **CTX-01**: App detects the name of the currently active application when the overlay is invoked — used to enrich the AI prompt context
+- [ ] **CTX-02**: When the active app is detected, AI-suggested quick actions reflect the app context (e.g. "Debug error" in Terminal, "Explain layer" in Figma) rather than generic actions
+- [ ] **CTX-03**: App detection is sourced from the OS (Rust layer) — must not rely on AI classification of screenshots
+
+### Platform
+
+- [ ] **PLAT-01**: Invoking the overlay keyboard shortcut opens the panel on the monitor where the user's cursor is — not always the primary display
+
+## Future Requirements
+
+### Voice Enhancement
+
+- **VOICE-03**: Interruption / barge-in — user can interrupt TTS mid-response to redirect
+- **VOICE-04**: Conversational follow-up within same task context via voice
+
+### Visual Guidance
+
+- **VIS-01**: Rich visual overlays — arrows, circles, highlights drawn on screen to point at UI elements
+- **VIS-02**: Step-by-step visual walkthroughs with animated annotations
+
+### Intelligence
+
+- **INTEL-02**: DOM assist for web apps — read page structure for higher precision guidance
+- **INTEL-03**: Proactive suggestions based on detected user confusion (opt-in only)
+
+### Automation
+
+- **AUTO-01**: Partial automation — offer to perform repetitive clicks/steps directly (user must approve each action)
+
+## Out of Scope
+
+| Feature | Reason |
+|---------|--------|
+| Mobile app (iOS/Android) | OS sandboxing prevents screen observation across apps |
+| Continuous screen recording | Privacy — capture only on demand |
+| Autonomous computer use | Changes trust model; high failure rate |
+| Pixel-perfect cursor pointing | Directional guidance is more robust |
+| Open-ended chatbot mode | Dilutes task-completion focus |
+| App-specific API integrations | Breaks "works universally" promise |
+| Visual overlays (arrows/highlights) | Too early; high effort; not needed before UX fundamentals are right |
+| AI screenshot classification for app detection | Slow, expensive, unreliable — use OS APIs |
+
+## Traceability
+
+| Requirement | Phase | Status |
+|-------------|-------|--------|
+| TASK-01 | TBD | Pending |
+| ACTN-01 | TBD | Pending |
+| ACTN-02 | TBD | Pending |
+| ACTN-03 | TBD | Pending |
+| ACTN-04 | TBD | Pending |
+| RESP-01 | TBD | Pending |
+| RESP-02 | TBD | Pending |
+| RESP-03 | TBD | Pending |
+| SESS-01 | TBD | Pending |
+| SESS-02 | TBD | Pending |
+| SESS-03 | TBD | Pending |
+| STEP-01 | TBD | Pending |
+| STEP-02 | TBD | Pending |
+| STEP-03 | TBD | Pending |
+| CTX-01 | TBD | Pending |
+| CTX-02 | TBD | Pending |
+| CTX-03 | TBD | Pending |
+| PLAT-01 | TBD | Pending |
+
+**Coverage:**
+- v2 requirements: 18 total
+- Mapped to phases: 0 (pending roadmap)
+- Unmapped: 18
+
+---
+*Requirements defined: 2026-04-11*
+*Last updated: 2026-04-11 after milestone v2.0 initialization*
