@@ -24,6 +24,7 @@
         "decorations": false,
         "transparent": true,
         "alwaysOnTop": true,
+        "visibleOnAllWorkspaces": true,
         "focus": false,
         "visible": false,
         "resizable": false,
