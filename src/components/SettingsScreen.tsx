@@ -1,4 +1,4 @@
-import { createSignal, onMount, Show, For } from "solid-js";
+import { createSignal, createEffect, onCleanup, onMount, Show, For } from "solid-js";
 import { getSkillProfile, getPttKey, updatePttShortcut, type SkillProfile } from "../lib/tauri";
 
 interface SettingsScreenProps {
@@ -61,6 +61,31 @@ export function SettingsScreen(props: SettingsScreenProps) {
 
   let captureRef: HTMLButtonElement | undefined;
 
+  // Global keydown listener — active only while in listening mode.
+  // Window-level capture is more reliable than button onKeyDown in Tauri WebView.
+  createEffect(() => {
+    if (!pttListening()) return;
+
+    const handler = (e: KeyboardEvent) => {
+      e.preventDefault();
+      e.stopPropagation();
+
+      if (e.key === "Escape") {
+        setPttListening(false);
+        return;
+      }
+
+      const tauriKey = eventToTauri(e);
+      if (!tauriKey) return; // standalone modifier — keep listening
+
+      setPttListening(false);
+      handlePttSave(tauriKey);
+    };
+
+    window.addEventListener("keydown", handler, true); // capture phase
+    onCleanup(() => window.removeEventListener("keydown", handler, true));
+  });
+
   onMount(async () => {
     try {
       const key = await getPttKey();
@@ -104,23 +129,7 @@ export function SettingsScreen(props: SettingsScreenProps) {
     captureRef?.focus();
   };
 
-  const handleKeyCapture = async (e: KeyboardEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-
-    if (e.key === "Escape") {
-      setPttListening(false);
-      return;
-    }
-
-    const tauriKey = eventToTauri(e);
-    if (!tauriKey) return; // standalone modifier — keep listening
-
-    setPttListening(false);
-    await handlePttSave(tauriKey);
-  };
-
-  return (
+return (
     <div style={{
       display: "flex",
       "flex-direction": "column",
@@ -204,7 +213,6 @@ export function SettingsScreen(props: SettingsScreenProps) {
             <button
               ref={captureRef}
               onClick={handleStartListening}
-              onKeyDown={pttListening() ? handleKeyCapture : undefined}
               onBlur={() => setPttListening(false)}
               disabled={pttSaving()}
               style={{
