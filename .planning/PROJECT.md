@@ -8,6 +8,21 @@ A cross-platform desktop app that helps you use any software — even if you've 
 
 Users complete tasks in unfamiliar software without Googling or getting stuck. If everything else fails, this must work: user says what they want to do → AI gives clear steps → user does it.
 
+## Current Milestone: v2.0 — Task-Native Experience
+
+**Goal:** Transform AI Buddy from a capable AI assistant into a task execution tool — action-first UI, step-guided execution, context awareness, and multi-monitor support.
+
+**Target features:**
+- Action-first UI with quick action buttons + async AI-suggested actions on selection
+- Step-first responses enforced in system prompt (no intro, no fluff, numbered steps from line 1)
+- Context-aware entry via app detection (VS Code, Figma, Terminal) pre-suggesting relevant actions
+- Step progress tracking — highlight current step, checkmark completed, click to jump/replay
+- Conversation continuity — follow-up in same task context without re-explaining
+- "Try another way" — alternative steps when current approach fails
+- Inline copy buttons for commands and code snippets in guidance output
+- Response history — scroll back through previous guidance in the current session
+- Multi-monitor support — overlay opens on active monitor via cursor-based Rust detection
+
 ## Requirements
 
 ### Validated (v1.0)
