@@ -94,7 +94,7 @@
 | CORE-04 | Phase 2 | Pending |
 | CORE-05 | Phase 2 | Pending |
 | VOICE-01 | Phase 3 | Pending |
-| VOICE-02 | Phase 3 | Pending |
+| VOICE-02 | Phase 6 | Pending |
 | SCRN-01 | Phase 4 | Complete |
 | LEARN-01 | Phase 5 | Complete |
 | LEARN-02 | Phase 5 | Complete |

@@ -99,10 +99,37 @@ Plans:
 - [x] 05-02-PLAN.md — ai.ts tier-aware prompt injection, tauri.ts memory IPC wrappers, SidebarShell.tsx memory integration + degradation notice UI
 - [x] 05-03-PLAN.md — SettingsScreen.tsx skill profile component, SidebarShell gear icon + content swap, human verification
 
+### Phase 6: Voice Settings
+**Goal**: Close the VOICE-02 UX gap — users can enable TTS auto-play and configure their PTT key from within the app settings screen, without editing settings.json manually
+**Depends on**: Phase 3, Phase 5
+**Requirements**: VOICE-02
+**Success Criteria** (what must be TRUE):
+  1. SettingsScreen has a "Voice" section with a TTS auto-play toggle that persists across app restarts
+  2. PTT key is configurable from the settings screen — user can change it without editing files
+  3. `_currentTaskLabel` signal is either surfaced in settings or removed (no dead code)
+**Plans**: 0 plans
+Plans:
+- [ ] 06-01-PLAN.md — SettingsScreen voice preferences section (TTS toggle, PTT key input), settings persistence, _currentTaskLabel cleanup
+**UI hint**: yes
+
+### Phase 7: Production Readiness
+**Goal**: Harden the app for public release — fix CORS origin, unify WORKER_URL config, remove dead exports, and document placeholder replacements
+**Depends on**: Phase 1
+**Requirements**: INFRA-01, INFRA-02
+**Success Criteria** (what must be TRUE):
+  1. Worker CORS origin is `tauri://localhost` (not `localhost:1420`) for production builds
+  2. WORKER_URL has a single config source used by both frontend (Vite env) and Rust backend
+  3. Dead exports (`closeRegionSelect`, `onOverlayHidden`) removed from tauri.ts
+  4. KV namespace ID, auto-updater endpoint, and wrangler.toml placeholders documented with clear replacement instructions
+**Plans**: 0 plans
+Plans:
+- [ ] 07-01-PLAN.md — CORS fix, WORKER_URL unification, dead export removal, placeholder documentation
+**UI hint**: no
+
 ## Progress
 
 **Execution Order:**
-Phases execute in numeric order: 1 → 2 → 3 → 4 → 5
+Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
@@ -111,3 +138,5 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5
 | 3. Voice I/O | 0/3 | Planning complete | - |
 | 4. Screen Region Selection | 3/3 | Complete   | 2026-04-10 |
 | 5. Learning & Adaptation | 3/3 | Complete | 2026-04-10 |
+| 6. Voice Settings | 0/1 | Planned | - |
+| 7. Production Readiness | 0/1 | Planned | - |
