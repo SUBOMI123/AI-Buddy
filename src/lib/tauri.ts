@@ -33,10 +33,6 @@ export function onOverlayShown(callback: () => void) {
   return listen("overlay-shown", callback);
 }
 
-export function onOverlayHidden(callback: () => void) {
-  return listen("overlay-hidden", callback);
-}
-
 // ---- Phase 3: Voice I/O IPC wrappers ----
 
 // PTT preference commands
@@ -108,11 +104,6 @@ export interface RegionCoords {
  *  Positions to cover primary monitor and sets focus. (D-02, RESEARCH Pattern 1) */
 export async function openRegionSelect(): Promise<void> {
   return invoke("cmd_open_region_select");
-}
-
-/** Hide the region-select overlay window without destroying it. (Pitfall 5) */
-export async function closeRegionSelect(): Promise<void> {
-  return invoke("cmd_close_region_select");
 }
 
 /** Capture a specific screen region at physical pixel coordinates.
