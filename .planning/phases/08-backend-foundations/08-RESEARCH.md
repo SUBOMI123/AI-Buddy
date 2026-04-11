@@ -391,17 +391,19 @@ const systemPrompt =
 
 ---
 
-## Open Questions
+## Open Questions (RESOLVED)
 
 1. **Does `active-win-pos-rs` require Accessibility permission on macOS for `app_name` (not just `title`)?**
    - What we know: README states `title` requires Screen Recording. `app_name` is described as available via NSWorkspace without special permission.
    - What's unclear: Whether any macOS Sequoia privacy change (post-2024) added additional gating.
    - Recommendation: Test on a clean macOS Sequoia install as noted in STATE.md blocker. If a permission dialog appears for `app_name`, fall back to returning None and document.
+   - **RESOLVED:** `app_name` is available without Screen Recording permission (NSWorkspace lookup, not CGWindowList). `cmd_get_active_app` returns `None` gracefully on any error — overlay still opens. Runtime validation on clean Sequoia install noted as post-Phase-8 check in STATE.md.
 
 2. **Should `detectedApp` persist across overlay hide/show, or reset each time?**
    - What we know: Current `onOverlayShown` resets all state. Detecting app on each show is the correct behavior (user may switch apps between invocations).
    - What's unclear: Race condition if user switches app very quickly after pressing shortcut.
    - Recommendation: Reset `detectedApp` to null on hide, re-detect on show. This is always fresh data.
+   - **RESOLVED:** Plan 02 Task 2 implements `setDetectedApp(null)` reset in the overlay-hidden handler, then fire-and-forget `getActiveApp()` in the overlay-shown handler. Always fresh data; race condition is benign (null renders as empty context, no crash).
 
 ---
 
