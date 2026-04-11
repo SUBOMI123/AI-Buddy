@@ -82,30 +82,30 @@
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| TASK-01 | TBD | Pending |
-| ACTN-01 | TBD | Pending |
-| ACTN-02 | TBD | Pending |
-| ACTN-03 | TBD | Pending |
-| ACTN-04 | TBD | Pending |
-| RESP-01 | TBD | Pending |
-| RESP-02 | TBD | Pending |
-| RESP-03 | TBD | Pending |
-| SESS-01 | TBD | Pending |
-| SESS-02 | TBD | Pending |
-| SESS-03 | TBD | Pending |
-| STEP-01 | TBD | Pending |
-| STEP-02 | TBD | Pending |
-| STEP-03 | TBD | Pending |
-| CTX-01 | TBD | Pending |
-| CTX-02 | TBD | Pending |
-| CTX-03 | TBD | Pending |
-| PLAT-01 | TBD | Pending |
+| TASK-01 | Phase 9 | Pending |
+| ACTN-01 | Phase 11 | Pending |
+| ACTN-02 | Phase 11 | Pending |
+| ACTN-03 | Phase 11 | Pending |
+| ACTN-04 | Phase 11 | Pending |
+| RESP-01 | Phase 10 | Pending |
+| RESP-02 | Phase 10 | Pending |
+| RESP-03 | Phase 10 | Pending |
+| SESS-01 | Phase 9 | Pending |
+| SESS-02 | Phase 9 | Pending |
+| SESS-03 | Phase 9 | Pending |
+| STEP-01 | Phase 10 | Pending |
+| STEP-02 | Phase 10 | Pending |
+| STEP-03 | Phase 10 | Pending |
+| CTX-01 | Phase 8 | Pending |
+| CTX-02 | Phase 8 | Pending |
+| CTX-03 | Phase 8 | Pending |
+| PLAT-01 | Phase 8 | Pending |
 
 **Coverage:**
 - v2 requirements: 18 total
-- Mapped to phases: 0 (pending roadmap)
-- Unmapped: 18
+- Mapped to phases: 18
+- Unmapped: 0
 
 ---
 *Requirements defined: 2026-04-11*
-*Last updated: 2026-04-11 after milestone v2.0 initialization*
+*Last updated: 2026-04-10 after roadmap creation for v2.0*
