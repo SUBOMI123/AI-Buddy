@@ -59,8 +59,6 @@ export function SidebarShell() {
 
   // Phase 5: Learning & Adaptation
   const [currentTier, setCurrentTier] = createSignal<number>(1);
-  // currentTaskLabel getter unused in JSX — stored for potential future rendering (e.g. settings screen)
-  const [_currentTaskLabel, setCurrentTaskLabel] = createSignal<string>("");
   // showFullStepsOverride getter unused in JSX — setter used by handleShowFullSteps to reset state
   const [_showFullStepsOverride, setShowFullStepsOverride] = createSignal(false);
 
@@ -226,7 +224,6 @@ export function SidebarShell() {
       }
     }
     setCurrentTier(ctx.tier);
-    setCurrentTaskLabel(ctx.taskLabel);
     setShowFullStepsOverride(false);
 
     // Phase 5: Build memory context for tier > 1 (D-08 — only send summary string, never raw rows)
