@@ -37,3 +37,6 @@ futures-util = "0.3"
 
 # Learning & Adaptation — Phase 5 (D-07)
 rusqlite = { version = "0.39", features = ["bundled"] }
+
+# Context Awareness — Phase 8 (CTX-01, CTX-03)
+active-win-pos-rs = "0.10"

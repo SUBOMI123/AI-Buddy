@@ -1,3 +1,4 @@
+mod app_context;
 mod memory;
 mod permissions;
 mod preferences;
@@ -40,6 +41,7 @@ pub fn run() {
             memory::cmd_record_interaction,
             memory::cmd_get_memory_context,
             memory::cmd_get_skill_profile,
+            app_context::cmd_get_active_app,
         ])
         .setup(|app| {
             // Hide from macOS Dock and Cmd+Tab (per FOUND-01, INFRA-02)
