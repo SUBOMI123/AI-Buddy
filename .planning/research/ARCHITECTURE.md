@@ -1,319 +1,373 @@
-# Architecture Patterns
+# Architecture Patterns: v2.0 Integration
 
-**Domain:** AI-powered desktop task-completion assistant (Tauri v2)
-**Researched:** 2026-04-09
-**Confidence:** HIGH (Tauri IPC, process model, Clicky reference) / MEDIUM (knowledge graph, audio pipeline)
+**Project:** AI Buddy v2.0 — Task-Native Experience
+**Researched:** 2026-04-10
+**Mode:** Feasibility / Integration
 
 ---
 
-## Recommended Architecture
+## Existing Architecture Snapshot
 
-The application is a **pipeline of five loosely coupled subsystems** running inside a single Tauri process. The Rust core owns all I/O and system access; the webview frontend owns all UI rendering. Nothing crosses that boundary except typed JSON messages over Tauri IPC.
+Before mapping v2 integrations, the current system contracts that must not break:
 
 ```
-┌─────────────────────────────────────────────────────────┐
-│                    USER INTERACTION                     │
-│   System Tray  ──►  Overlay Window  ──►  Input Panel   │
-└──────────────────────────┬──────────────────────────────┘
-                           │ IPC (Commands + Events)
-┌──────────────────────────▼──────────────────────────────┐
-│                    TAURI RUST CORE                      │
-│                                                         │
-│  ┌──────────┐  ┌───────────┐  ┌──────────────────────┐ │
-│  │  Screen  │  │   Audio   │  │   Memory / Knowledge │ │
-│  │ Capture  │  │ Pipeline  │  │       Graph          │ │
-│  └────┬─────┘  └─────┬─────┘  └──────────┬───────────┘ │
-│       │              │                    │             │
-│  ┌────▼──────────────▼────────────────────▼───────────┐ │
-│  │              Session Orchestrator                  │ │
-│  │   (assembles context, manages request lifecycle)   │ │
-│  └────────────────────────┬───────────────────────────┘ │
-└───────────────────────────┼─────────────────────────────┘
-                            │ HTTPS (all requests)
-┌───────────────────────────▼─────────────────────────────┐
-│               CLOUDFLARE WORKER PROXY                   │
-│   /chat  →  Anthropic Claude (vision + streaming SSE)   │
-│   /tts   →  TTS provider (audio bytes)                  │
-│   /stt   →  STT provider token or audio upload          │
-└─────────────────────────────────────────────────────────┘
+SidebarShell (SolidJS state machine)
+  ContentState: "empty" | "loading" | "streaming" | "error" | "listening" | "selecting"
+  Signals: streamingText, lastIntent, inputValue, selectedRegion, thumbnailB64,
+           currentTier, ttsEnabled, showSettings, isListening, sttError
+
+IPC contract (tauri.ts wrappers):
+  invoke: 14 registered commands in lib.rs
+  events: overlay-shown, overlay-hidden, ptt-start, stt-partial, stt-final, stt-error,
+          region-selected, region-cancelled
+
+Rust state (tauri::State):
+  MemoryDb(Mutex<Connection>) — single managed state
+
+Cloudflare Worker routes:
+  POST /chat, POST /classify, POST /stt, POST /tts, GET /health
 ```
 
 ---
 
-## Component Boundaries
+## Feature 1: Quick Action Buttons
 
-| Component | Lives In | Responsibility | Communicates With |
-|-----------|----------|---------------|-------------------|
-| System Tray | Rust (TAO) | Process lifecycle, tray icon + menu, show/hide windows | Window Manager, Keyboard Shortcut listener |
-| Window Manager | Rust (tauri::WebviewWindow) | Creates/destroys overlay + panel windows, sets always-on-top / transparent flags | Tray, Frontend via events |
-| Overlay Window | Webview (React/Svelte) | Renders step-by-step guidance text, pointer indicators, push-to-talk button | Session Orchestrator via IPC events |
-| Input Panel | Webview (React/Svelte) | Text input fallback, recording indicator, history view | Session Orchestrator via IPC commands |
-| Screen Capture | Rust (xcap on macOS, windows-capture on Windows) | Captures full screen or selected region on demand | Session Orchestrator |
-| Audio Pipeline | Rust (cpal or tauri-plugin-mic-recorder) | Push-to-talk recording → raw PCM → base64 or temp file | Session Orchestrator, Cloudflare Worker (STT) |
-| Session Orchestrator | Rust (AppState + async commands) | Assembles screenshot + transcript, calls Proxy, streams response tokens back to frontend | All subsystems |
-| Memory/Knowledge Graph | Rust (SQLite + sqlite-vec) | Stores task attempts, knowledge gaps, completions; similarity search for context injection | Session Orchestrator |
-| TTS Player | Rust (rodio) or Frontend (Web Audio API) | Plays synthesised audio response | Session Orchestrator |
-| Cloudflare Worker | Edge (TypeScript Workers) | Holds API keys, proxies to Anthropic/STT/TTS, handles SSE passthrough | Session Orchestrator (outbound only) |
+### Where do they live in the state machine?
 
----
+Quick action buttons (e.g., "Explain this", "Write a command", "Debug this error") are a **pre-intent shortcut layer** that bypasses the text input. They do NOT require a new ContentState.
 
-## Data Flow
+The correct integration point is in the `empty` state render path. When `contentState() === "empty"` and no permission is needed, render a `QuickActions` component above the `EmptyState`. Clicking a button calls `submitIntent(buttonLabel)` directly — identical to the user typing and pressing Enter.
 
-### Primary Flow: User Asks for Help
+No state machine changes needed. The existing `loading → streaming → empty` cycle handles the full button-triggered flow.
 
-```
-1. User holds push-to-talk key (global shortcut registered in Rust)
-       │
-       ▼
-2. Audio Pipeline starts recording via mic (cpal / tauri-plugin-mic-recorder)
-       │
-       ▼
-3. On key release → audio bytes sent to Cloudflare Worker /stt endpoint
-       │  (POST audio file or stream; Worker forwards to AssemblyAI / Deepgram)
-       ▼
-4. STT transcript returned (WebSocket stream or HTTP response)
-       │
-       ▼
-5. Screen Capture module takes screenshot of active screen region
-       │  (xcap on macOS, windows-capture on Windows; returns PNG bytes)
-       ▼
-6. Session Orchestrator builds context packet:
-       {
-         transcript: "How do I add a keyframe in Figma?",
-         screenshot: "<base64 PNG>",
-         memory_context: [recent struggles, relevant past tasks],  ← from Knowledge Graph
-         guidance_level: "detailed" | "short" | "hint"            ← from Memory
-       }
-       │
-       ▼
-7. POST to Cloudflare Worker /chat endpoint (HTTPS)
-       │  Worker attaches Anthropic API key, forwards as streaming SSE
-       ▼
-8. Claude responds with streaming text tokens (SSE)
-       │  Worker streams tokens back to app
-       ▼
-9. Session Orchestrator emits Tauri events to Overlay Window as tokens arrive
-       │  frontend renders incrementally
-       ▼
-10. Full response text sent to Cloudflare Worker /tts endpoint
-       │  Worker forwards to TTS provider (ElevenLabs / OpenAI TTS)
-       ▼
-11. Audio bytes returned → played via rodio (Rust) or Web Audio API
-       │
-       ▼
-12. Interaction logged to Knowledge Graph:
-       {task, app_context, outcome, timestamp, guidance_level_used}
-```
+**New component:** `QuickActions.tsx` — reads from `detectedApp` signal (see Feature 4), renders 3–4 contextual buttons. Passes button label directly to `handleSubmit`.
 
-### Secondary Flow: Region Selection
+**Modified component:** `SidebarShell.tsx` — add `detectedApp` signal, add `QuickActions` to the empty-state branch of the JSX.
 
-```
-User clicks "select region" in tray menu
-       │
-       ▼
-Overlay Window rendered full-screen with transparent drag-to-select UI
-       │  (decorations: false, transparent: true, always_on_top: true)
-       ▼
-User draws selection rectangle → coordinates sent via IPC command to Rust
-       │
-       ▼
-Screen Capture crops next screenshot to that region
-       │
-       ▼
-Normal flow resumes from step 6
-```
+### Async AI classification fit
 
-### Memory Write Flow
+The existing `prepareGuidanceContext` already calls `/classify` async before streaming. Quick actions pre-supply the intent text; classification still runs on the same path. No architectural change needed. The button label is a human-readable phrase that gets classified the same way a typed intent does.
 
-```
-After each completed guidance session:
-  Session Orchestrator → Memory module:
-    write_attempt(task_description, app_name, success: bool, guidance_level)
-    upsert_knowledge_gap(topic_embedding, gap_description)
-
-Before each session:
-  Session Orchestrator → Memory module:
-    query_similar_tasks(current_transcript_embedding, limit: 5)
-    → returns past struggles + outcomes to inject into Claude system prompt
-```
+**Confidence: HIGH** — button → `submitIntent` is direct reuse of the existing submission path.
 
 ---
 
-## Patterns to Follow
+## Feature 2: Conversation Continuity
 
-### Pattern 1: Rust Owns All System I/O
+### Where does conversation history live?
 
-The webview must never directly access the filesystem, camera, microphone, or screen. All system capabilities are implemented as Tauri commands in Rust and exposed to the frontend through the IPC bridge. This is both a security boundary (Tauri's capability system enforces it) and an architectural boundary.
+**Recommendation: SolidJS signal in SidebarShell, not Rust state or Cloudflare Worker KV.**
 
-**Implication:** Every capability (capture screen, record audio, read memory) is a Rust module with a command interface.
+Rationale:
+- The existing `streamingText` signal holds only the last response. Conversation history is a `createSignal<Message[]>([])` where `Message = { role: 'user' | 'assistant', content: string }`.
+- Rust tauri::State is the wrong home — conversation context is ephemeral (session-only) and does not need SQLite durability. The MemoryDb pattern is for long-term learning data, not turn-by-turn chat context.
+- Cloudflare Worker KV is the wrong home — KV is eventually consistent, requires a session ID scheme, and adds a network round-trip to every turn. The Worker is stateless by design; the app already owns message construction in `streamGuidance()`.
 
-### Pattern 2: Commands for Request-Response, Events for Push
+**Session boundary:** History clears on `onOverlayShown` reset (the existing reset block in onMount). This is intentional — each invocation of the overlay is a fresh session.
 
-Use `#[tauri::command]` for operations that return data (start_recording → transcript, query_memory → Vec<Task>).
+**New signal:** `conversationHistory: Message[]` in SidebarShell. Appended on every `onDone`. Reset in `onOverlayShown` handler.
 
-Use `app.emit()` for streaming updates (token_received, tts_started, tts_done). This maps to JavaScript Promises vs EventListeners respectively.
+### How to pass multi-turn context to Claude without bloating requests
 
-Audio streaming tokens from Claude should be events, not commands, since they arrive asynchronously over SSE and the frontend needs to render them incrementally.
+Current `streamGuidance` sends `messages: [{ role: 'user', content: [image?, text] }]` — a single-turn array.
 
-### Pattern 3: Single AppState via Mutex-Wrapped Structs
+For multi-turn, change to: `messages: conversationHistory + currentTurn`. The `messages` array already passes through the Worker `/chat` route unchanged. No Worker change needed.
 
-Shared mutable state (recording status, active session, selected screen region) lives in `Mutex<T>` registered with `app.manage()`. Tauri handles the Arc internally. Do not create naked `Arc<Mutex<T>>` unless spawning threads outside Tauri's runtime.
+**Token budget discipline:**
+- Summarize assistant turns after N exchanges (suggested: 3). Replace the oldest assistant message with a single-sentence summary.
+- Keep screenshots only in the most recent user turn (prior turns: text only, image removed).
+- This is a frontend concern only — `streamGuidance` receives the already-trimmed messages array.
+
+**Modified:** `src/lib/ai.ts` — `StreamGuidanceOptions.messages` replaces the implicit single-turn construction. `SidebarShell.tsx` owns history accumulation and trimming.
+
+**Confidence: HIGH** — Claude Messages API is already multi-turn; the Worker passes messages verbatim.
+
+---
+
+## Feature 3: Step Progress Tracking
+
+### SolidJS signal vs SQLite persistence?
+
+**Recommendation: SolidJS signal only. No SQLite persistence for step state.**
+
+Rationale:
+- Step completion is within-session state. The user closes the overlay, the task is done or abandoned. Persisting step positions to SQLite for a per-session ephemeral concept adds complexity with no recovery scenario.
+- The existing `recordInteraction` call in `onDone` already handles the meaningful durable signal: "this task was completed."
+- Step state surviving overlay hide/show is achievable cheaply: the `onOverlayShown` handler currently resets `streamingText` to `""`. Change this: only reset on **new submission**, not on every show. The signal persists across hide/show in the same Tauri process lifetime.
+
+**Current problem:** `onOverlayShown` resets `streamingText` unconditionally. This means re-opening the overlay clears the previous guidance. For step tracking to survive hide/show, this reset must be conditional.
+
+**Proposed rule:** Reset `streamingText` and step state only when the user explicitly submits a new intent. On re-open after a streaming result, restore to the last guidance with step state intact.
+
+**New signals:** `stepStates: boolean[]` in SidebarShell (index-aligned to parsed steps from `streamingText`). Rendered in `GuidanceList` with checkmark affordance per step.
+
+**Modified component:** `GuidanceList.tsx` — accept `stepStates` prop, render per-step checkbox/checkmark, emit `onStepToggle(index: number)` callback. No new Tauri IPC needed.
+
+**Modified:** `SidebarShell.tsx` — conditional reset in `onOverlayShown`, `stepStates` signal, pass down to GuidanceList.
+
+**Confidence: HIGH** — pure frontend state management, no IPC changes.
+
+---
+
+## Feature 4: App Detection
+
+### Rust approach cross-platform
+
+**Recommendation: `active-win-pos-rs` crate (v0.10.0, released 2026-03-13), wrapped in a new Tauri command `cmd_get_active_app`.**
+
+The crate's `get_active_window()` returns an `ActiveWindow` struct with `app_name` (process name), `title` (window title), and `process_path`. This covers macOS (via NSWorkspace) and Windows (via GetForegroundWindow + process enumeration) in a single call with a unified API. It was updated 28 days before this research; actively maintained.
+
+On macOS, reading the window title requires screen recording permission — which AI Buddy already requests. The `app_name` (process name) field is available without that permission.
+
+**Alternative not recommended:** The `frontmost` crate (macOS-only, updated Feb 2026) uses NSWorkspace notifications — appropriate for continuous tracking, over-engineered for on-demand snapshot at intent time. Ruled out: macOS only, no Windows coverage.
+
+**New Tauri command:** `cmd_get_active_app() -> Result<Option<String>, String>` in a new file `src-tauri/src/app_context.rs`. Returns just the app name string (no full path, no window title). Called from JS at overlay-show time.
+
+**Integration point:**
+1. In `onOverlayShown` handler in SidebarShell, call `getActiveApp()` (new tauri.ts wrapper).
+2. Set `detectedApp` signal.
+3. Pass to `QuickActions` component for contextual button selection.
+4. Pass as `appContext` field to `recordInteraction` (the `app_context` column already exists in the interactions schema — it is always `null` today, this populates it).
+
+**New:** `src-tauri/src/app_context.rs` + register in `lib.rs` + `getActiveApp()` in `tauri.ts`.
+
+**Confidence: MEDIUM** — `active-win-pos-rs` is maintained and cross-platform, but integration with Tauri's permission model on macOS needs hands-on validation. macOS may surface an Accessibility permission dialog on first use of `get_active_window()`.
+
+---
+
+## Feature 5: Multi-Monitor Support
+
+### Tauri v2 monitor and cursor APIs
+
+Both the Rust backend and JS frontend have the needed APIs in Tauri v2 stable.
+
+**Rust backend (HIGH confidence — from docs.rs):**
+- `app_handle.cursor_position()` returns `Result<PhysicalPosition<f64>>`
+- `app_handle.available_monitors()` returns `Result<Vec<Monitor>>`
+- `app_handle.monitor_from_point(x, y)` returns `Result<Option<Monitor>>`
+
+**JS frontend (HIGH confidence — from v2.tauri.app/reference):**
+- `cursorPosition()` — physical pixels
+- `availableMonitors()` — list of Monitor objects
+- `monitorFromPoint(x, y)`
+- `primaryMonitor()`
+
+### Repositioning sequence for overlay before show
+
+The existing `toggle_overlay` in `window.rs` uses `window.primary_monitor()` unconditionally. This must be replaced with cursor-based monitor detection.
+
+**Proposed sequence (Rust, inside `toggle_overlay`):**
 
 ```rust
-struct SessionState {
-    recording: bool,
-    active_region: Option<ScreenRegion>,
-    guidance_level: GuidanceLevel,
+// 1. Get cursor position from AppHandle (requires AppHandle, not just WebviewWindow)
+let cursor = app.cursor_position()?;
+
+// 2. Get monitor containing cursor, fall back to primary
+let monitor = app
+    .monitor_from_point(cursor.x, cursor.y)?
+    .or_else(|| window.primary_monitor().ok().flatten());
+
+// 3. Position overlay at right edge of that monitor
+if let Some(monitor) = monitor {
+    let pos = monitor.position();
+    let size = monitor.size();
+    let scale = monitor.scale_factor();
+    let x = pos.x + size.width as i32 - (300.0 * scale) as i32;
+    let y = pos.y + (menu_bar_height * scale) as i32;
+    window.set_position(PhysicalPosition::new(x, y))?;
+    window.set_size(LogicalSize::new(300.0, height))?;
 }
-app.manage(Mutex::new(SessionState::default()));
 ```
 
-### Pattern 4: Cloudflare Worker as Strict Gateway
+The current `toggle_overlay` signature takes only `&WebviewWindow`. To access `cursor_position()` it needs `AppHandle`. The function must be changed to take `(app: &AppHandle, window: &WebviewWindow)`. The call sites in `shortcut.rs` and `cmd_toggle_overlay` in `window.rs` must be updated accordingly.
 
-The Worker is the only component with API credentials. The app binary contains only the Worker URL. The Worker validates requests (rate limiting, CORS origin check) and proxies SSE streams verbatim. Audio bytes for TTS are proxied through the Worker — never streamed directly from the client to ElevenLabs.
+The region-select window (`cmd_open_region_select`) has the same problem — it already takes `AppHandle` as a parameter, so cursor detection is a straightforward add there.
 
-This means the Worker must handle three distinct request types:
-- Text → streaming SSE (Claude)
-- Audio file upload → text (STT)
-- Text → audio bytes (TTS)
+**Modified:** `src-tauri/src/window.rs` — both `toggle_overlay` and `cmd_open_region_select` functions. Signature change in `toggle_overlay` cascades to `shortcut.rs`.
 
-### Pattern 5: SQLite as Knowledge Graph Substrate
+**No new IPC needed** — this is purely a Rust-internal change to window positioning logic.
 
-Use SQLite with the `sqlite-vec` extension for vector similarity search. A "knowledge graph" at this scale is a set of tagged event records (task attempts, identified gaps) plus embedding-based retrieval. A full graph DB is premature. The schema stays simple:
-
-```
-tasks(id, description, app_name, timestamp, success, guidance_level)
-knowledge_gaps(id, topic, embedding BLOB, last_seen, seen_count)
-completions(id, task_id, duration_seconds, final_guidance_level)
-```
-
-Embeddings for `knowledge_gaps` come from a lightweight local embedding model or from Claude's API (embed once, store). Cosine similarity via `sqlite-vec` retrieves relevant past context.
-
-### Pattern 6: Multiple Tauri Windows for UI Layers
-
-Three distinct window types, each with different decoration/transparency settings:
-
-| Window | Type | Decorations | Transparent | Always On Top | Role |
-|--------|------|-------------|-------------|--------------|------|
-| Tray menu | OS-native (TAO) | N/A | N/A | Yes | Process entry point |
-| Control panel | Standard WebviewWindow | Yes | No | No | Settings, history |
-| Guidance overlay | WebviewWindow | No | Yes | Yes | Step display, TTS indicator |
-| Region selector | WebviewWindow | No | Yes | Yes | Screen area selection |
-
-The overlay and region selector windows use `decorations: false`, `transparent: true`, `always_on_top: true` in `tauri.conf.json`. The guidance overlay is never focused (click-through where possible) unless the user explicitly interacts with it.
+**Confidence: HIGH** — `AppHandle::cursor_position()` and `monitor_from_point` are in Tauri v2 stable docs.
 
 ---
 
-## Anti-Patterns to Avoid
+## Feature 6: Response History
 
-### Anti-Pattern 1: Embedding API Keys in Binary
+### In-session signal vs persisted SQLite?
 
-**What:** Shipping Anthropic, ElevenLabs, or STT keys inside the Tauri binary or frontend JS bundle.
-**Why bad:** Desktop binaries are trivially reversible. Keys get extracted and abused.
-**Instead:** All keys live only in the Cloudflare Worker. The app authenticates with the Worker by URL alone (optionally add a per-user token if needed in later phases).
+**Recommendation: In-session SolidJS signal only. Do not persist to SQLite.**
 
-### Anti-Pattern 2: Synchronous Screen Capture on Main Thread
+Rationale:
+- Response history (scroll back through previous guidance in the current session) is within-session UI state. The `interactions` table in SQLite already stores the guidance text permanently for learning purposes. Re-querying SQLite to populate a UI scroll view adds complexity without benefit.
+- The `conversationHistory` signal (from Feature 2) already contains both user intents and assistant responses. Response history is a UI rendering of that signal.
+- SQLite persistence would only matter if users need history across separate sessions — that is a v3 concern (and the SettingsScreen already has a skill profile view that provides cross-session context).
 
-**What:** Calling xcap capture functions in a synchronous Tauri command on the main thread.
-**Why bad:** Screen capture on macOS requires permissions dialog handling and can take 50-200ms; blocking the main thread freezes the UI and blocks IPC.
-**Instead:** Use `#[tauri::command] async fn capture_screen(...)` — async commands run on the `tauri::async_runtime` thread pool.
+**Implementation:** `GuidanceList.tsx` currently renders only `streamingText` (the most recent response). For response history, `GuidanceList` should receive the full `conversationHistory` array and render all assistant turns with visual separators, scrolled to the most recent.
 
-### Anti-Pattern 3: Storing Screenshots Locally
+The two coexist: during streaming the current assistant turn is still accumulating in `streamingText`. Render `conversationHistory` (completed prior turns) first, then append the live `streamingText` buffer at the bottom.
 
-**What:** Writing screenshot PNG files to disk as part of normal operation.
-**Why bad:** Screen captures of other apps may contain sensitive data (passwords, private messages). Local storage creates a privacy liability without user consent.
-**Instead:** Hold screenshots in memory (Vec<u8>) for the duration of the API call, then drop. Never persist to disk except during explicit user-triggered bug report flows.
+**Modified component:** `GuidanceList.tsx` — accept `conversationHistory: Message[]` prop alongside `streamingText`. Render prior turns greyed or separated, live buffer at bottom.
 
-### Anti-Pattern 4: Polling for State Changes
+**No new Tauri IPC or SQLite schema changes needed.**
 
-**What:** Frontend polling a Rust command every 500ms to check recording status or new guidance tokens.
-**Why bad:** Unnecessary CPU use for a background app that must stay lightweight.
-**Instead:** Rust emits events to the frontend on state transitions. Frontend registers event listeners.
-
-### Anti-Pattern 5: Monolithic AppState
-
-**What:** A single giant struct holding all state (recording, memory, windows, sessions, preferences) under one Mutex.
-**Why bad:** Any operation on any field locks the entire state. Increases lock contention as features grow.
-**Instead:** Register multiple narrowly-scoped state types with `app.manage()`. One Mutex per domain (SessionState, MemoryState, PrefsState).
+**Confidence: HIGH** — pure frontend state.
 
 ---
 
-## Build Order (Dependency Chain)
+## Feature 7: Inline Copy Buttons and "Try Another Way"
 
-Components have hard dependencies — some cannot be built until others exist. The order below respects those dependencies.
+Not the primary research questions but relevant to build order:
+
+**Inline copy buttons:** `GuidanceList` line renderer detects code fences or inline code in `streamingText`. Wrap detected code segments in a `<pre>` with a copy button. Pure frontend, no IPC. Lowest-risk addition; can land in any phase.
+
+**"Try another way":** Calls `submitIntent(lastIntent() + " — try a different approach")` with `forceFullSteps = true` to bypass tier degradation. Rendered as a button in the post-streaming controls area. Pure frontend. Reuses the existing `handleShowFullSteps` pattern.
+
+---
+
+## Component Boundary Map
+
+### New Files
+
+| File | Type | Purpose |
+|------|------|---------|
+| `src/components/QuickActions.tsx` | SolidJS component | Action buttons, reads detectedApp, calls handleSubmit |
+| `src-tauri/src/app_context.rs` | Rust module | App detection via active-win-pos-rs |
+
+### Modified Files
+
+| File | Change | Risk |
+|------|--------|------|
+| `src/components/SidebarShell.tsx` | Add conversationHistory, detectedApp, stepStates signals; conditional onOverlayShown reset; wire QuickActions | Medium — core state machine |
+| `src/components/GuidanceList.tsx` | Accept conversationHistory + stepStates; render history; per-step checkmarks; copy buttons | Low — additive rendering changes |
+| `src/lib/ai.ts` | StreamGuidanceOptions accepts messages array for multi-turn | Low — additive option, backward-compatible with single-turn fallback |
+| `src/lib/tauri.ts` | Add getActiveApp() wrapper | Low — additive |
+| `src-tauri/src/window.rs` | Cursor-based monitor detection in toggle_overlay and cmd_open_region_select; toggle_overlay gains AppHandle param | Medium — affects all overlay positioning and cascades to shortcut.rs |
+| `src-tauri/src/shortcut.rs` | Update toggle_overlay call site to pass app handle | Low — mechanical change driven by window.rs signature |
+| `src-tauri/src/lib.rs` | Register cmd_get_active_app | Low — additive |
+| `Cargo.toml` | Add active-win-pos-rs = "0.10" | Low |
+
+### Unchanged Files
+
+| File | Reason Stable |
+|------|---------------|
+| `src-tauri/src/memory.rs` | app_context column already exists; populated by recordInteraction, no schema change |
+| `src-tauri/src/voice/` | No changes to STT/TTS pipeline |
+| `worker/src/index.ts` | /chat already passes messages array verbatim; /classify unchanged |
+| `src-tauri/src/preferences.rs` | No new prefs for v2 features |
+| `src-tauri/src/screenshot.rs` | Unchanged |
+
+---
+
+## Recommended Build Order (Minimizes Breaking Changes)
+
+The order is driven by two constraints: (a) each feature should be testable in isolation, (b) features that modify the core state machine in SidebarShell should land after features that only add new modules.
+
+**Phase 1 — Backend foundations (zero UI risk)**
+1. App detection: add `app_context.rs`, register `cmd_get_active_app`, add `getActiveApp()` to tauri.ts. Wire to `recordInteraction`'s `appContext` arg — the SQLite column is already there, this just populates it.
+2. Multi-monitor: refactor `window.rs` cursor-based positioning. Test on single-monitor first (behavior identical), then multi-monitor.
+
+**Phase 2 — Conversation continuity (moderate state machine risk)**
+3. Add `conversationHistory` signal to SidebarShell. Modify `streamGuidance` call to pass messages array. Change `onOverlayShown` reset to be conditional — this is the one change that touches existing behavior.
+4. Update `GuidanceList` to render history (prior turns greyed, current turn live). This is additive — if conversationHistory is empty, behavior is identical to v1.
+
+**Phase 3 — Step tracking and response history (GuidanceList additive)**
+5. Add `stepStates` to SidebarShell. Update GuidanceList to render per-step checkmarks and copy buttons.
+6. Response history scrolling falls out of Phase 2 GuidanceList changes — verify scroll behavior with multiple turns.
+
+**Phase 4 — Action-first UI (new component, low risk)**
+7. Add `QuickActions.tsx`. Wire `detectedApp` from app detection (Phase 1) to button selection logic. Add "Try another way" button to post-streaming controls.
+8. Step-first system prompt enforcement: update `SYSTEM_PROMPT` in ai.ts — no numbered steps in preamble, numbered steps from line 1.
+
+---
+
+## Critical Integration Pitfalls
+
+### Pitfall 1: onOverlayShown Unconditional Reset (HIGH RISK)
+**What goes wrong:** The current reset in `onOverlayShown` clears `streamingText`, `errorMessage`, and `streamingText` on every overlay show. If conversationHistory and step state are added without changing this, history and steps evaporate on every hide/show toggle.
+**Fix:** Make the reset conditional on new submission, not on overlay visibility. The reset block in `onOverlayShown` should only fire when `contentState() === "empty"` with no active session — or move the reset to `submitIntent` where it already partially occurs.
+**Detection:** Regression immediately visible: hide overlay mid-guidance, re-open, observe empty state.
+
+### Pitfall 2: messages Array Growth Unbounded
+**What goes wrong:** Passing full conversationHistory to Claude on every turn will eventually hit the 4096 max_tokens ceiling or create expensive requests. Session conversations with screenshots grow quickly.
+**Fix:** Implement message trimming in SidebarShell before passing to streamGuidance: remove screenshots from non-current turns, summarize after 3 assistant turns. This must be implemented in Phase 2, not deferred.
+**Detection:** Monitor request body sizes in dev; Claude will return 400/context errors if not addressed.
+
+### Pitfall 3: App Detection macOS Permission (MEDIUM RISK)
+**What goes wrong:** `active-win-pos-rs` on macOS may trigger an Accessibility or Screen Recording permission prompt separate from the one AI Buddy already requests. If this happens at overlay-show time, it interrupts UX with a system dialog.
+**Fix:** Call `get_active_window()` in a background task (tauri::async_runtime::spawn), not in the shortcut callback. Return only `app_name` (not window title) to minimize permission surface. Test on a clean macOS install with no prior permission grants before shipping.
+**Detection:** Tauri permission prompt appearing on first app launch on a clean system.
+
+### Pitfall 4: toggle_overlay Signature Cascade
+**What goes wrong:** Changing `toggle_overlay` to take `(app: &AppHandle, window: &WebviewWindow)` cascades to `shortcut.rs` which calls it. If `shortcut.rs` is not updated in the same commit, compilation fails.
+**Fix:** Update both files in the same change. The signature change is mechanical and low-risk, but must be coordinated.
+**Detection:** Compile error — this one is impossible to miss.
+
+### Pitfall 5: Region Select Multi-Monitor Coverage
+**What goes wrong:** The region-select window uses `win.primary_monitor()` for sizing. On a multi-monitor setup, if the user triggers region-select from the overlay on a secondary monitor, the region-select window will cover the wrong screen.
+**Fix:** Apply cursor-based monitor detection to `cmd_open_region_select`. Coordinate this change with the toggle_overlay refactor in Phase 1 step 2.
+
+---
+
+## Data Flow: v2 Full Request Cycle
 
 ```
-1. Cloudflare Worker Proxy
-   └─ Required by: everything that calls AI APIs
-   └─ Build first; other components mock it during dev
+[Shortcut pressed]
+  → toggle_overlay(app, window) (Rust)
+    → cursor_position() + monitor_from_point() → reposition overlay on active monitor
+    → window.show() + emit("overlay-shown")
+  → onOverlayShown (SolidJS)
+    → getActiveApp() → detectedApp signal (fire-and-forget, no blocking)
+    → conditional reset (only if no active session)
+    → QuickActions renders contextual buttons based on detectedApp
 
-2. Tauri Shell (system tray + window management)
-   └─ Required by: all UI components
-   └─ Build: tray icon → control panel window → overlay window skeleton
+[User clicks action OR types intent]
+  → submitIntent(text)
+    → reset streamingText, stepStates, errorMessage (here, not in onOverlayShown)
+    → prepareGuidanceContext → /classify → tier + taskLabel
+    → getMemoryContext (if tier > 1)
+    → captureScreenshot OR captureRegion
+    → build messages: trim(conversationHistory) + currentTurn (with screenshot)
+    → streamGuidance(messages)
+      → POST /chat (Claude SSE stream)
+        → onToken: appends to live streamingText buffer
+        → onDone: push { role: 'assistant', content: streamingText } to conversationHistory
+                  recordInteraction(taskLabel, intent, guidance, tier, detectedApp)
+                  playTts if enabled
 
-3. Screen Capture Module (Rust)
-   └─ Requires: Tauri shell (permissions integration)
-   └─ Required by: Session Orchestrator
-   └─ Build: xcap integration → async command → IPC exposure
+[User checks off step]
+  → stepStates signal updated (no IPC)
 
-4. Audio Pipeline (Rust)
-   └─ Requires: Tauri shell (mic permissions)
-   └─ Required by: Session Orchestrator
-   └─ Build: push-to-talk recording → temp file/bytes → STT proxy call → transcript
+[User clicks "Try another way"]
+  → submitIntent(lastIntent + " — try a different approach", forceFullSteps=true)
 
-5. Session Orchestrator (Rust)
-   └─ Requires: Screen Capture, Audio Pipeline, Cloudflare Worker
-   └─ Required by: Frontend UI, Memory module
-   └─ Build: assemble context → POST to /chat → stream SSE tokens → emit events
-
-6. Frontend Overlay UI (Webview)
-   └─ Requires: Session Orchestrator events
-   └─ Build: token streaming display → TTS status indicator → guidance level badge
-
-7. TTS Playback (Rust or Frontend)
-   └─ Requires: Session Orchestrator (has completed response text)
-   └─ Build: POST to /tts proxy → decode audio bytes → play via rodio
-
-8. Memory / Knowledge Graph (Rust + SQLite)
-   └─ Requires: Session Orchestrator (writes after sessions complete)
-   └─ Required by: Session Orchestrator (reads context before sessions)
-   └─ Build: schema + write path → read/query path → embedding + similarity search
-      Note: Start with simple tag-based lookup; add embeddings in a later phase
-
-9. Region Selection UI (Webview)
-   └─ Requires: Screen Capture (uses region rect), Overlay Window
-   └─ Build: transparent overlay → drag selection → coordinate IPC → crop integration
-
-10. Guidance Level / Degradation Logic (Rust, inside Orchestrator)
-    └─ Requires: Memory (reads past interactions to determine current level)
-    └─ Build: rule-based degradation first → memory-informed degradation later
+[Overlay hidden and re-shown]
+  → onOverlayShown fires
+  → conversationHistory and stepStates preserved (conditional reset)
+  → detectedApp refreshed
 ```
 
 ---
 
-## Scalability Considerations
+## Confidence Assessment
 
-| Concern | At V1 (single user) | At V2 (multi-account / teams) |
-|---------|--------------------|-----------------------------|
-| Screenshot privacy | In-memory only, dropped after call | Same; never changes |
-| Knowledge graph | Single SQLite file in app data dir | Per-user SQLite files or optional cloud sync |
-| Cloudflare Worker | Single shared Worker with rate limits | Per-user auth tokens in Worker |
-| Memory retrieval | Full-table scan with sqlite-vec | Same; SQLite handles thousands of rows comfortably |
-| Concurrent sessions | Not supported (single-user app) | Not in scope |
+| Area | Confidence | Basis |
+|------|------------|-------|
+| Quick actions integration | HIGH | Direct reuse of submitIntent; no state machine changes needed |
+| Conversation continuity | HIGH | Claude Messages API multi-turn already supported; Worker passes messages verbatim |
+| Step tracking (signals only) | HIGH | Pure frontend, no IPC |
+| App detection cross-platform | MEDIUM | active-win-pos-rs v0.10.0 actively maintained; macOS permission interaction needs hands-on validation |
+| Multi-monitor cursor detection | HIGH | AppHandle::cursor_position + monitor_from_point in Tauri v2 stable |
+| Response history (frontend) | HIGH | Falls out of conversationHistory signal; additive GuidanceList change |
 
 ---
 
 ## Sources
 
-- Tauri v2 Architecture: https://v2.tauri.app/concept/architecture/
-- Tauri IPC (Commands vs Events): https://v2.tauri.app/concept/inter-process-communication/
-- Tauri State Management: https://v2.tauri.app/develop/state-management/
-- Tauri System Tray: https://v2.tauri.app/learn/system-tray/
-- Tauri Window Customization: https://v2.tauri.app/learn/window-customization/
-- Tauri Global Shortcut Plugin: https://v2.tauri.app/plugin/global-shortcut/
-- Clicky Reference Architecture (farzaa/clicky): https://github.com/farzaa/clicky
-- tauri-plugin-screenshots (xcap): https://crates.io/crates/tauri-plugin-screenshots
-- tauri-plugin-mic-recorder: https://crates.io/crates/tauri-plugin-mic-recorder
-- sqlite-vec (vector search in SQLite): https://alexgarcia.xyz/sqlite-vec/rust.html
-- sqlite-knowledge-graph crate: https://crates.io/crates/sqlite-knowledge-graph
-- Cloudflare Workers SSE proxy pattern: https://github.com/castari/castari-proxy
+- Tauri v2 window API (JS): https://v2.tauri.app/reference/javascript/api/namespacewindow/
+- Tauri AppHandle Rust docs: https://docs.rs/tauri/latest/tauri/struct.AppHandle.html
+- active-win-pos-rs crate (v0.10.0, 2026-03-13): https://github.com/dimusic/active-win-pos-rs
+- active-win-pos-rs on crates.io: https://crates.io/crates/active-win-pos-rs
+- frontmost crate (macOS-only): https://crates.io/crates/frontmost
+- NSWorkspace frontmostApplication (Apple): https://developer.apple.com/documentation/appkit/nsworkspace/frontmostapplication
+- Tauri monitor_from_point feature request: https://github.com/tauri-apps/tauri/issues/3057
+- Windows GetForegroundWindow Rust bindings: https://microsoft.github.io/windows-docs-rs/doc/windows/Win32/UI/WindowsAndMessaging/fn.GetForegroundWindow.html

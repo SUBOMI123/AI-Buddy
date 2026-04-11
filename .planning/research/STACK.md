@@ -1,212 +1,303 @@
 # Technology Stack
 
-**Project:** AI Buddy
-**Researched:** 2026-04-09
+**Project:** AI Buddy v2.0
+**Researched:** 2026-04-10
+**Scope:** Additions only — covers new v2 capabilities. Existing validated stack (Tauri v2, SolidJS, Rust, xcap, cpal, AssemblyAI, ElevenLabs, rusqlite, Cloudflare Worker/Hono) is unchanged.
 
 ---
 
-## Recommended Stack
+## v2 Stack Additions by Feature
 
-### Core Framework
+### 1. App Detection — Identify the Active Window's App Name
 
-| Technology | Version | Purpose | Why |
-|------------|---------|---------|-----|
-| Tauri | 2.10.3 (stable) | App shell, IPC, window management, system tray | Only cross-platform desktop framework hitting the 15-30MB RAM target. Electron idles at 150-300MB; Tauri idles at 10-30MB. Stable as of Oct 2024, minor updates through early 2026. |
-| Rust | 1.85+ | Backend logic, screen capture, audio I/O, storage | Required by Tauri. All performance-critical operations (capture, encoding, STT streaming) must live in Rust, not JS. |
-| SolidJS | latest | Frontend UI (overlay, tray window) | Smallest runtime of the viable options (~7kB vs React's 42kB). True reactivity without virtual DOM overhead. Tauri is frontend-agnostic; SolidJS minimizes the WebView footprint. Do not use React — its bundle size and VDOM reconciliation are unnecessary overhead for what is essentially a chat overlay. |
-| Vite | 6.x | Frontend build | Standard Tauri v2 scaffolding uses Vite. Fast HMR, minimal config. |
-| TypeScript | 5.x | Frontend type safety | Non-negotiable for maintainability at any team size. |
+**Requirement:** Know which app is in focus when the overlay opens (VS Code, Figma, Terminal, etc.) to pre-suggest relevant quick actions.
 
-### Screen Capture
+**Recommended crate:** `active-win-pos-rs` v0.10.0
 
-| Technology | Version | Purpose | Why |
-|------------|---------|---------|-----|
-| xcap | 0.9.4 | Cross-platform screenshots | Pure Rust, actively maintained (0.9.4 released 2026-04-09). Supports macOS, Windows, Linux. Used as the engine under `tauri-plugin-screenshots`. Simpler API than scap for the screenshot-only use case. Handles monitor and window enumeration natively. |
-| scap | 0.1.0-beta.1 | Fallback / future video frames | High-performance alternative using ScreenCaptureKit (macOS), Windows.Graphics.Capture, and Pipewire (Linux). Currently in beta. Prefer xcap for V1 stills; evaluate scap for V2 video/frame streaming. |
-| image crate | 0.25.x | Image encoding (PNG → JPEG → base64) | Required to encode captured frames to JPEG (smaller than PNG) before base64-encoding for Claude API vision calls. Standard Rust image processing library. |
-| base64 crate | 0.22.x | Base64 encoding for Claude vision API | Encode JPEG bytes to base64 string for Anthropic Messages API image blocks. |
+| Field | Value |
+|-------|-------|
+| Crate | `active-win-pos-rs` |
+| Version | 0.10.0 (released March 13, 2026) |
+| Platforms | macOS, Windows, Linux |
+| Returns | `ActiveWindow` struct with `app_name`, `title`, `process_id`, `process_path`, `window_id`, `position` |
+| macOS permission | Requires Screen Recording permission — already granted for xcap screenshots in v1 |
+| Windows permission | None required |
 
-**Decision: xcap over windows-capture.** xcap is a single crate that handles both Windows and macOS. `windows-capture` is Windows-only and would require per-platform branching. For V1 covering macOS + Windows, xcap is the correct abstraction.
+**Why active-win-pos-rs over x-win:**
+`x-win` v5.6.1 is feature-rich (supports all open windows, icon retrieval) but that breadth adds unnecessary complexity. `active-win-pos-rs` does exactly one thing — return the active window — with a simpler API. For the app detection use case (just the name), the lighter crate is the correct choice.
 
-**Decision: Screenshots, not video frames, for V1.** The user initiates capture (push-to-talk model). On voice input, capture one screenshot, send to Claude. Video streaming is a V2 problem that needs scap's more complex pipeline.
+**Why NOT to use Tauri's built-in APIs for this:**
+Tauri does not expose a built-in "get focused app" API. The `AppHandle` provides `cursor_position()` and `monitor_from_point()` for monitor geometry but nothing for window ownership. App detection needs an external crate.
 
-### Voice I/O — Speech-to-Text
-
-| Technology | Version | Purpose | Why |
-|------------|---------|---------|-----|
-| cpal | 0.15.x | Microphone audio capture | Low-level cross-platform audio I/O. Direct OS integration (WASAPI on Windows, CoreAudio on macOS). Used by tauri-plugin-mic-recorder under the hood. Use directly in Rust backend for push-to-talk VAD control. |
-| AssemblyAI Streaming API | v3 (Universal-3) | Cloud STT | Sub-300ms P50 latency over WebSocket. Clicky (the reference implementation) uses AssemblyAI — this is the validated path. Universal-3 Pro gives highest accuracy. Proxy through Cloudflare Worker so API key never ships in binary. |
-| tokio-tungstenite | 0.21.x | WebSocket client for STT stream | Async WebSocket in Rust for the AssemblyAI streaming connection. Works natively with Tokio runtime (which Tauri v2 uses). |
-
-**Decision: AssemblyAI over local Whisper (via tauri-plugin-stt).** tauri-plugin-stt downloads Vosk models locally — low accuracy, large model download on first run, no streaming. AssemblyAI's Universal-3 streaming gives sub-300ms results without shipping a 300MB model. For an app where voice is the primary input channel, accuracy is non-negotiable. Use the proxy pattern to keep API keys off the binary.
-
-**Decision: cpal directly over tauri-plugin-mic-recorder.** The plugin is a thin wrapper that saves WAV files — wrong model for streaming. Push-to-talk requires: open audio stream on keydown, stream PCM chunks over WebSocket to AssemblyAI, close on keyup. Direct cpal gives that control.
-
-### Voice I/O — Text-to-Speech
-
-| Technology | Version | Purpose | Why |
-|------------|---------|---------|-----|
-| ElevenLabs API (Turbo v2.5) | HTTP streaming | TTS for AI guidance output | ElevenLabs is the Clicky-validated path. Turbo v2.5 is ~250-300ms latency, better quality than Flash for instructional speech. Stream audio response and play via rodio to start playback before full generation completes. |
-| elevenlabs-sdk (Rust) | crates.io | ElevenLabs REST/WebSocket client | Official-ish Rust SDK on crates.io covering 220+ endpoints including WebSocket TTS streaming. Reduces boilerplate vs raw reqwest. |
-| rodio | 0.19.x | Audio playback | Built on cpal. Decode and play streaming MP3/PCM from ElevenLabs. Used to play TTS output through system audio. |
-
-**Decision: ElevenLabs over OS TTS (tauri-plugin-tts).** OS TTS (AVSpeechSynthesizer on macOS, SAPI on Windows) sounds robotic and varies across OS versions. For a product where voice output is the primary UX, voice quality directly impacts perceived quality. ElevenLabs is the proven choice here. Cost is acceptable at the usage model (user-initiated, not continuous).
-
-### AI Backend
-
-| Technology | Version | Purpose | Why |
-|------------|---------|---------|-----|
-| Claude API (claude-3-5-sonnet or claude-3-7-sonnet) | Messages API | Vision + reasoning for task guidance | Project spec mandates Claude. claude-3-5-sonnet for cost/speed, claude-3-7-sonnet for complex UI reasoning. Use vision API with base64 JPEG screenshots. |
-| reqwest | 0.12.x | HTTP client for Claude API calls | Standard Rust async HTTP client. Tauri v2's official HTTP plugin re-exports reqwest. Use directly in Rust backend for full control over request construction and streaming. |
-| serde / serde_json | 1.x | JSON serialization for API request/response | Universal Rust serialization. Required for Claude Messages API JSON bodies. |
-
-**Decision: All AI calls go through Cloudflare Worker proxy.** The Cloudflare Worker holds the API keys. The Tauri app calls `https://your-worker.workers.dev/claude` with a short-lived token or HMAC signature. This means zero secrets in the binary, and rate-limiting/cost controls can be added at the proxy layer without app updates.
-
-### Local Storage and Knowledge Graph
-
-| Technology | Version | Purpose | Why |
-|------------|---------|---------|-----|
-| rusqlite | 0.31.x | SQLite binding for Rust | Direct, zero-overhead SQLite. The official Tauri SQL plugin (sqlx-based) is heavier and requires async where sync reads are fine. Use rusqlite directly in Rust backend with tauri::command wrappers. |
-| sqlite-vec | 0.x | Vector search extension for SQLite | Enables semantic similarity search over user knowledge without a separate vector DB process. Pure C, no dependencies, runs in-process with SQLite via rusqlite's extension loading. Use for finding similar past struggles/completions when generating personalized guidance. |
-
-**Schema outline for V1:**
-
-```sql
--- What the user has tried to do
-CREATE TABLE tasks (
-  id INTEGER PRIMARY KEY,
-  intent TEXT NOT NULL,           -- "I want to export a PDF from Figma"
-  app_context TEXT,               -- "Figma" (inferred from screenshot)
-  completed INTEGER DEFAULT 0,
-  created_at INTEGER NOT NULL
-);
-
--- Per-step outcomes
-CREATE TABLE steps (
-  id INTEGER PRIMARY KEY,
-  task_id INTEGER REFERENCES tasks(id),
-  step_number INTEGER,
-  guidance TEXT NOT NULL,         -- what AI said
-  outcome TEXT,                   -- "done", "confused", "skipped"
-  created_at INTEGER NOT NULL
-);
-
--- Aggregate knowledge gaps
-CREATE TABLE knowledge_items (
-  id INTEGER PRIMARY KEY,
-  concept TEXT NOT NULL,          -- "exporting", "layer panels"
-  app_context TEXT,
-  struggle_count INTEGER DEFAULT 0,
-  success_count INTEGER DEFAULT 0,
-  embedding BLOB,                 -- float32 vector via sqlite-vec
-  updated_at INTEGER NOT NULL
-);
+**Cargo.toml addition:**
+```toml
+active-win-pos-rs = "0.10"
 ```
 
-**Decision: SQLite over graph databases (GraphLite, Grafeo, IndraDB).** The knowledge model for V1 is simple: tasks, steps, outcomes, concepts. A relational schema with adjacency lists covers the graph needs without the operational complexity of a dedicated graph engine. Add sqlite-vec for semantic retrieval. Promote to a proper graph DB in V2 only if query patterns demand it.
+**Integration pattern:** New `#[tauri::command] fn cmd_get_active_app() -> Option<String>` in a new `app_context.rs` module. Call `get_active_window()` from `active_win_pos_rs`, extract `app_name`. Expose to frontend via `invoke("cmd_get_active_app")`. Call this in the `overlay-shown` event handler in SidebarShell before rendering quick actions.
 
-**Decision: rusqlite over official tauri-plugin-sql.** The official plugin uses sqlx, which is async-first and optimized for server workloads. rusqlite is synchronous, simpler to use from `tauri::command` handlers, and has better support for SQLite extensions (critical for sqlite-vec). Run DB operations on a dedicated thread via `std::thread::spawn` or `tokio::task::spawn_blocking` to avoid blocking the async runtime.
-
-### API Proxy
-
-| Technology | Version | Purpose | Why |
-|------------|---------|---------|-----|
-| Cloudflare Workers | (serverless) | Proxy Claude + AssemblyAI + ElevenLabs API calls | Zero API keys in binary. Free tier: 100,000 requests/day. Edge-deployed globally. Simple TypeScript worker, ~50 lines. Validates app identity via HMAC or short-lived token in request header. |
-| Hono | 4.x | Worker routing framework | Lightweight TypeScript router for Cloudflare Workers. Makes multi-route proxies (Claude, STT, TTS) readable. Adds zero cold-start cost. |
-
-### Development Tooling
-
-| Technology | Purpose | Why |
-|------------|---------|-----|
-| Cargo workspaces | Rust project organization | Split app into: `core` (screen cap, audio, storage), `ai-client` (Claude proxy calls), `tauri-app` (commands and event plumbing). Faster incremental builds. |
-| cargo-tauri CLI | Tauri build/dev | Standard toolchain. `cargo tauri dev` for local. `cargo tauri build` for signed binaries. |
-| TypeScript + Vite | Frontend build | Standard Tauri v2 scaffold. No additional config needed. |
+**Confidence:** MEDIUM — crate is actively maintained (latest release March 2026). On macOS, `title` returns empty without Screen Recording but `app_name`/`process_path` return correctly regardless. Behavior on macOS Sequoia not explicitly confirmed in docs but consistent with platform implementation pattern.
 
 ---
 
-## Alternatives Considered
+### 2. Multi-Monitor Support — Position Overlay on Active Monitor
 
-| Category | Recommended | Alternative | Why Not |
-|----------|-------------|-------------|---------|
-| App shell | Tauri v2 | Electron | 10x RAM overhead. For an always-on background process, this kills the product experience. Non-negotiable. |
-| App shell | Tauri v2 | Flutter Desktop | No mature Rust interop. Screen capture in Dart is painful. Community smaller than Tauri. |
-| Screen capture | xcap | windows-capture | Windows-only. Forces platform branching. xcap covers both platforms. |
-| Screen capture | xcap | scap | scap is beta (v0.1.0-beta.1). Use for V2 frame streaming. xcap is stable for V1 screenshots. |
-| Frontend | SolidJS | React | React bundle is ~6x larger. VDOM overhead irrelevant for this use case. SolidJS is a strict upgrade for a performance-sensitive overlay. |
-| Frontend | SolidJS | Svelte 5 | Both are valid. SolidJS wins on pure runtime performance; Svelte wins on DX. Choose SolidJS if any team member already knows it; choose Svelte if team is React-native. Either is acceptable — this is a LOW confidence call. |
-| STT | AssemblyAI | tauri-plugin-stt (Vosk) | Vosk models are offline but require 40-300MB download on first run, have noticeably lower accuracy, and don't support streaming. Wrong tradeoff for voice-first UX. |
-| STT | AssemblyAI | Deepgram | Both are viable. AssemblyAI is the Clicky-validated choice. Stick with it unless accuracy issues emerge in testing. |
-| TTS | ElevenLabs | OS native TTS | Robot voice. Unacceptable for a product where voice is the primary output channel. |
-| TTS | ElevenLabs | OpenAI TTS | ElevenLabs has better voice quality at equivalent latency. Clicky-validated path. |
-| Local DB | rusqlite | tauri-plugin-sql (sqlx) | sqlx is async-heavy; rusqlite is simpler for sync Tauri commands and supports SQLite extensions (sqlite-vec). |
-| Local DB | rusqlite + SQLite | GraphLite / Grafeo | V1 data model is relational with simple associations. Dedicated graph DB adds operational complexity with no V1 benefit. |
-| AI model | Claude | GPT-4o | Project constraint specifies Claude. Claude's vision is strong for UI reasoning. |
+**Requirement:** When the global shortcut fires, open the overlay on whichever monitor the cursor is currently on — not always the primary monitor.
+
+**No new crate required.** Tauri v2's built-in `AppHandle` already provides:
+
+| Method | What it does |
+|--------|-------------|
+| `app_handle.cursor_position()` | Returns `PhysicalPosition<f64>` of current cursor, relative to desktop origin |
+| `app_handle.monitor_from_point(x, y)` | Returns `Option<Monitor>` for the monitor containing that point |
+| `monitor.position()` | Returns `PhysicalPosition<i32>` — top-left of that monitor |
+| `monitor.size()` | Returns `PhysicalSize<u32>` |
+| `monitor.scale_factor()` | Returns `f64` DPI scale |
+
+These are stable APIs in Tauri 2.10.3 (confirmed in `docs.rs/tauri/latest/tauri/struct.AppHandle.html`).
+
+**Integration pattern:** Modify `window.rs::toggle_overlay()`. Replace the current `window.primary_monitor()` lookup with:
+1. `app.cursor_position()` → `(cx, cy)`
+2. `app.monitor_from_point(cx, cy)` → `active_monitor`
+3. Position the overlay at the right edge of `active_monitor` using the same PhysicalPosition math already in `toggle_overlay`.
+
+The existing `cmd_open_region_select` also uses `primary_monitor()` and needs the same update.
+
+**Known pitfall:** Tauri's coordinate origin on multi-monitor setups is the top-left of the main/primary monitor (macOS, Windows), not the active monitor. PhysicalPosition values from other monitors will be negative or large positive numbers relative to this origin. The existing set_position logic already uses PhysicalPosition correctly — just substituting `active_monitor` for `primary_monitor` is sufficient.
+
+**Confidence:** HIGH — these are stable Tauri v2 APIs with clear documentation. The coordinate system behavior is explicitly documented and already handled in the current window.rs math.
 
 ---
 
-## Installation
+### 3. Clipboard Access — Inline Copy Buttons
+
+**Requirement:** "Copy" buttons in rendered guidance output (code snippets, terminal commands) write text to the system clipboard.
+
+**Recommended plugin:** `@tauri-apps/plugin-clipboard-manager` v2.3.2 (official Tauri plugin)
+
+| Component | Value |
+|-----------|-------|
+| npm package | `@tauri-apps/plugin-clipboard-manager` v2.3.2 |
+| Rust crate | `tauri-plugin-clipboard-manager` (add to Cargo.toml) |
+| Tauri install | `npm run tauri add clipboard-manager` |
+| Permission needed | `clipboard-manager:allow-write-text` in capabilities config |
+
+**Why NOT to use `navigator.clipboard.writeText` directly:**
+Tauri's WebView triggers a native OS security dialog when `navigator.clipboard` APIs are called from the WebView context. This is an open issue (Tauri #12007). The official plugin bypasses this via Rust IPC, no dialog.
+
+**Integration pattern:**
+- Rust side: register `tauri_plugin_clipboard_manager::Builder::new().build()` in `lib.rs::setup`
+- Frontend: `import { writeText } from "@tauri-apps/plugin-clipboard-manager"` — call from a SolidJS click handler on the copy button
+- Permissions: add `clipboard-manager:allow-write-text` to `src-tauri/capabilities/default.json`
+
+No new Rust command needed — the plugin exposes the JS API directly.
+
+**Confidence:** HIGH — official Tauri plugin, v2.3.2 is current (verified via npm), writeText is a stable primitive with clear documentation.
+
+---
+
+### 4. Conversation Continuity — Multi-Turn Claude Context
+
+**Requirement:** Follow-up questions stay in the same task context. User says "I'm stuck on step 2" without re-explaining the original task.
+
+**No new library required.** This is a data structure and call-site change to the existing `streamGuidance` function in `src/lib/ai.ts`.
+
+**Pattern:** Claude's Messages API is stateless — the client accumulates history and sends it with each request. The existing `streamGuidance` function sends a single-message array:
+```typescript
+messages: [{ role: "user", content: userContent }]
+```
+
+For conversation continuity, change this to a `messages` parameter that callers build up:
+```typescript
+messages: MessageParam[]  // full history: [user, assistant, user, assistant, ...]
+```
+
+**Data structure (SolidJS front-end):** Use a `createStore` array in SidebarShell (not a signal) to hold message history. `createStore` with a `For` loop prevents full re-renders and scroll-position resets when new messages are appended — a known SolidJS pitfall for chat interfaces.
+
+```typescript
+// MessageParam compatible with Claude Messages API
+interface MessageParam {
+  role: "user" | "assistant";
+  content: string | ContentBlock[];
+}
+
+const [messages, setMessages] = createStore<MessageParam[]>([]);
+```
+
+**Conversation reset:** Clear the store when the overlay is hidden (on `overlay-hidden` event) OR when the user explicitly starts a new task. Do not persist conversation history across sessions — this is in-session only.
+
+**Image handling in history:** Claude's Messages API accepts image blocks in user turns only. For conversation continuity, include the screenshot only in the first turn; subsequent follow-up turns are text-only. Sending a screenshot on every follow-up is wasteful and increases latency.
+
+**Context size management:** In-session history is bounded naturally — users close the overlay between tasks. No truncation logic needed for v2. If sessions grow very long, truncate to last N turns (max_tokens budget is 4096 output + history input).
+
+**Confidence:** HIGH — Claude Messages API multi-turn pattern is well-documented (platform.claude.com/docs/en/api/messages). SolidJS createStore for message arrays is validated pattern.
+
+---
+
+### 5. Step Progress Tracking — Persistent State Across Hide/Show
+
+**Requirement:** When the user hides the overlay mid-task and re-opens it, the current step highlight and checkmarks are preserved.
+
+**No new library required.** This is a state management pattern using existing SolidJS primitives.
+
+**Pattern:** Steps are derived from the AI response text (parsed numbered list). Step state (current/completed) lives in a `createStore` in SidebarShell:
+
+```typescript
+interface StepState {
+  currentStep: number;      // 0-indexed
+  completedSteps: Set<number>;
+}
+const [stepState, setStepState] = createStore<StepState>({
+  currentStep: 0,
+  completedSteps: new Set()
+});
+```
+
+The store persists across hide/show cycles naturally — SolidJS component state survives `window.hide()` because the WebView is not destroyed (Tauri keeps the WebView alive in a hidden window). No localStorage or Tauri Store plugin needed for this.
+
+**Reset logic:** Reset stepState when:
+- A new AI response begins streaming (new task)
+- The conversation history is cleared
+- The user clicks "Start over"
+
+**Confidence:** HIGH — Tauri's hide/show model keeps the WebView alive. SolidJS stores persist. No library needed.
+
+---
+
+### 6. Response History — In-Session Scroll-Back
+
+**Requirement:** User can scroll back through previous guidance exchanges in the current session.
+
+**No new library required.** Response history is the same `messages` store from Conversation Continuity (item 4 above). The history array holds all turns; the UI renders all of them in a scrollable list.
+
+**Pattern:** The `messages` store doubles as display history and Claude API payload. Each exchange appends `{ role: "user", content: ... }` and `{ role: "assistant", content: ... }` to the same store. `<For each={messages}>` renders them as a scrollable history.
+
+**Important:** This means the conversation continuity store and the response history display are the same data structure — not two separate stores. Building them separately would create sync bugs.
+
+**Confidence:** HIGH — same store, no additional technology.
+
+---
+
+### 7. Action-First UI — Quick Actions and AI-Suggested Actions
+
+**Requirement:** Display quick action buttons on overlay open. Classify the selection type when a screen region is selected (text, image, code, UI element) and suggest relevant AI actions asynchronously.
+
+**No new library required.** This is a prompt engineering + UI pattern.
+
+**Classification approach:** When a region screenshot arrives, send it to Claude with a lightweight classification prompt (separate from the main guidance call):
+```
+"Identify what type of content is visible in this screenshot selection.
+Reply with one word: code | text | ui | image | error | other"
+```
+
+Run this as a non-streaming `fetch` call (not SSE) to the existing `/chat` endpoint with `max_tokens: 10`. The result drives which suggested actions to show (e.g., "code" → "Explain this code", "Debug this", "Add comments").
+
+**Quick action button data:** Hardcoded action labels keyed by app context and selection type. No library — a TypeScript `const` map:
+```typescript
+const APP_ACTIONS: Record<string, string[]> = {
+  "Code Editor": ["Explain selected code", "Fix this error", "Write a test"],
+  "Terminal": ["Explain this command", "Fix this error"],
+  // ...
+};
+```
+
+**Async render pattern in SolidJS:** Use a `createResource` tied to the selection screenshot for the AI-suggested actions. The quick action buttons render immediately from the static map; the AI suggestions appear when the resource resolves.
+
+**Confidence:** HIGH (no new tech) — classification via Claude with `max_tokens: 10` is a standard pattern. `createResource` is SolidJS core API.
+
+---
+
+## Summary of v2 Stack Additions
+
+| Capability | Addition | Type | Version |
+|-----------|----------|------|---------|
+| App detection | `active-win-pos-rs` | Rust crate | 0.10.0 |
+| Multi-monitor overlay | Tauri `AppHandle::cursor_position` + `monitor_from_point` | Built-in Tauri API | Tauri 2.10.3 (already available) |
+| Clipboard (copy buttons) | `@tauri-apps/plugin-clipboard-manager` | Official Tauri plugin | 2.3.2 (npm) + Rust peer |
+| Conversation continuity | `createStore` message array | SolidJS pattern | No new dependency |
+| Step progress tracking | `createStore` step state | SolidJS pattern | No new dependency |
+| Response history | Same message store as conversation | SolidJS pattern | No new dependency |
+| Action-first UI | Claude classification prompt + static map | Prompt engineering + TypeScript | No new dependency |
+
+**Net new dependencies: 2**
+1. `active-win-pos-rs = "0.10"` (Rust — app detection)
+2. `tauri-plugin-clipboard-manager` (official Tauri plugin — clipboard)
+
+---
+
+## What NOT to Add
+
+| Avoided Addition | Why |
+|-----------------|-----|
+| `tauri-plugin-positioner` | Handles fixed locations (TopRight, TrayLeft) — not cursor-aware active monitor placement. The built-in `cursor_position` + `monitor_from_point` APIs do the job without a plugin. |
+| `x-win` crate | More capable than needed (all windows, icons). `active-win-pos-rs` is focused and lighter for the active-window-name-only use case. |
+| `@tauri-apps/plugin-store` | Not needed for in-session state. SolidJS stores survive hide/show cycles in the hidden WebView. Tauri Store writes to disk — wrong tool for ephemeral session data. |
+| `navigator.clipboard` (web API) | Triggers OS security dialog in Tauri WebView context. Use the official plugin instead. |
+| Separate conversation store + history store | One store serves both. Two stores create sync bugs. |
+| `@solid-primitives/storage` with `makePersisted` | Step state and conversation history are intentionally session-scoped, not persisted. `makePersisted` would survive app restart — wrong behavior. |
+
+---
+
+## Cargo.toml Changes
+
+Add to `src-tauri/Cargo.toml` `[dependencies]`:
+
+```toml
+# v2: App detection (app-aware quick actions, CORE-06)
+active-win-pos-rs = "0.10"
+
+# v2: Clipboard plugin (copy buttons in guidance output)
+tauri-plugin-clipboard-manager = "2"
+```
+
+Register in `lib.rs`:
+```rust
+.plugin(tauri_plugin_clipboard_manager::Builder::new().build())
+```
+
+---
+
+## npm Changes
 
 ```bash
-# Scaffold Tauri v2 app
-cargo install create-tauri-app
-npm create tauri-app@latest ai-buddy -- --template solid-ts
+npm run tauri add clipboard-manager
+# or manually:
+npm install @tauri-apps/plugin-clipboard-manager
+```
 
-# Key Rust crates (add to src-tauri/Cargo.toml)
-# [dependencies]
-# xcap = "0.9"
-# cpal = "0.15"
-# rodio = { version = "0.19", features = ["mp3"] }
-# tokio-tungstenite = { version = "0.21", features = ["native-tls"] }
-# reqwest = { version = "0.12", features = ["json", "stream"] }
-# serde = { version = "1", features = ["derive"] }
-# serde_json = "1"
-# rusqlite = { version = "0.31", features = ["bundled"] }
-# base64 = "0.22"
-# image = { version = "0.25", default-features = false, features = ["jpeg"] }
-# elevenlabs-sdk = "*"  # verify latest on crates.io
-
-# Cloudflare Worker (separate repo or monorepo /worker)
-npm create cloudflare@latest ai-buddy-proxy -- --template hello-world-ts
-npm install hono
+Add to `src-tauri/capabilities/default.json`:
+```json
+"permissions": [
+  "clipboard-manager:allow-write-text"
+]
 ```
 
 ---
 
 ## Confidence Assessment
 
-| Technology | Confidence | Notes |
-|------------|------------|-------|
-| Tauri v2 | HIGH | Actively maintained at 2.10.3 as of 2026-04-09. Official docs current. |
-| xcap for screenshots | HIGH | Version 0.9.4 released 2026-04-09. Actively maintained. docs.rs build failed on 0.9.4 (likely transient) but 0.8.x documented successfully. |
-| cpal for mic input | HIGH | Industry standard for Rust audio I/O. Used by tauri-plugin-mic-recorder and rodio. |
-| AssemblyAI STT | MEDIUM | API is stable and documented. Clicky uses it successfully. No official Rust SDK — must use tokio-tungstenite directly against WebSocket API. Adds integration work. |
-| ElevenLabs TTS | MEDIUM | Rust SDK exists on crates.io (elevenlabs-sdk). WebSocket streaming supported. SDK maturity unverified — may need to fall back to raw reqwest if SDK is incomplete. |
-| SolidJS as frontend | MEDIUM | Valid choice, but Tauri community tutorials skew toward React and Svelte. SolidJS works fine but may have fewer Tauri-specific examples to reference. |
-| rusqlite + sqlite-vec | MEDIUM | rusqlite is stable. sqlite-vec v0.1.0 is stable per its announcement. Extension loading via rusqlite is supported but requires verifying bundled SQLite version compatibility. |
-| scap (future) | LOW | v0.1.0-beta.1 — not production-ready for V1. Watch for stable release. |
-| Cloudflare Worker proxy | HIGH | Established pattern. Free tier more than sufficient for private beta. |
+| Area | Level | Reason |
+|------|-------|--------|
+| Multi-monitor (Tauri built-ins) | HIGH | `cursor_position`, `monitor_from_point` are documented stable APIs in Tauri 2.10.3. Coordinate math is already proven in window.rs. |
+| Clipboard plugin | HIGH | Official Tauri plugin, v2.3.2 verified on npm. writeText is stable. |
+| App detection (active-win-pos-rs) | MEDIUM | v0.10.0 released March 2026 — actively maintained. macOS title behavior is a known limitation (empty without Screen Recording) but `app_name` works. Screen Recording permission already granted for xcap. |
+| Conversation continuity | HIGH | Claude Messages API multi-turn is well-documented. SolidJS createStore for chat arrays is a validated community pattern. |
+| Step state persistence | HIGH | Tauri keeps WebView alive across hide/show — no special mechanism needed. Confirmed by existing overlay behavior in v1. |
+| Action classification | MEDIUM | Low-token Claude classification calls are a standard pattern; latency of non-streaming call for short responses is untested in this app. Needs validation in implementation. |
 
 ---
 
 ## Sources
 
-- Tauri v2 releases: https://github.com/tauri-apps/tauri/releases
-- Tauri system tray docs: https://v2.tauri.app/learn/system-tray/
-- Tauri window customization: https://v2.tauri.app/learn/window-customization/
-- xcap crate (docs.rs): https://docs.rs/crate/xcap/latest
-- xcap GitHub: https://github.com/nashaofu/xcap
-- scap GitHub: https://github.com/CapSoftware/scap
-- AssemblyAI Universal Streaming: https://assemblyai.com/docs/universal-streaming
-- AssemblyAI streaming blog: https://www.assemblyai.com/blog/streaming-speech-to-text-update
-- ElevenLabs Rust SDK: https://crates.io/crates/elevenlabs-sdk
-- ElevenLabs streaming docs: https://elevenlabs.io/docs/api-reference/streaming
-- tauri-plugin-stt: https://github.com/brenogonzaga/tauri-plugin-stt
-- tauri-plugin-tts: https://github.com/brenogonzaga/tauri-plugin-tts
-- tauri-plugin-mic-recorder: https://crates.io/crates/tauri-plugin-mic-recorder
-- sqlite-vec: https://github.com/asg017/sqlite-vec
-- sqlite-vec announcement: https://alexgarcia.xyz/blog/2024/sqlite-vec-stable-release/index.html
-- Tauri SQL plugin: https://v2.tauri.app/plugin/sql/
-- Cloudflare Workers AI: https://developers.cloudflare.com/workers-ai/
-- Tauri v2 + AI desktop app (real-world): https://dev.to/purpledoubled/how-i-built-a-desktop-ai-app-with-tauri-v2-react-19-in-2026-1g47
-- CrabNebula UI libraries for Tauri: https://crabnebula.dev/blog/the-best-ui-libraries-for-cross-platform-apps-with-tauri/
-- Clicky (reference implementation): https://github.com/farzaa/clicky
+- active-win-pos-rs GitHub: https://github.com/dimusic/active-win-pos-rs
+- active-win-pos-rs crates.io: https://crates.io/crates/active-win-pos-rs
+- x-win docs.rs: https://docs.rs/x-win/latest/x_win/
+- Tauri v2 AppHandle API: https://docs.rs/tauri/latest/tauri/struct.AppHandle.html
+- Tauri clipboard plugin: https://v2.tauri.app/plugin/clipboard/
+- Tauri clipboard npm: https://www.npmjs.com/package/@tauri-apps/plugin-clipboard-manager
+- Tauri positioner plugin: https://v2.tauri.app/plugin/positioner/
+- Tauri multi-monitor cursor issue: https://github.com/tauri-apps/tauri/issues/3057
+- navigator.clipboard in Tauri (security dialog issue): https://github.com/tauri-apps/tauri/issues/12007
+- Claude Messages API multi-turn: https://platform.claude.com/docs/en/api/messages
+- SolidJS Stores: https://docs.solidjs.com/concepts/stores
+- SolidJS createStore for messages (Vercel AI issue): https://github.com/vercel/ai/issues/2002
