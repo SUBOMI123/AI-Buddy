@@ -167,11 +167,10 @@ pub fn cmd_update_ptt_shortcut(app: AppHandle, key: String) -> Result<String, St
         return Err(format!("Invalid PTT key: {}", key));
     }
 
-    // Read old key before saving
-    let old_key = load_preferences(&app).ptt_key.clone();
-
-    // Persist new key
+    // WR-04: Single read to avoid TOCTOU — two separate load_preferences calls would allow
+    // a concurrent preference write (e.g., toggling audio cues) to be silently overwritten.
     let mut prefs = load_preferences(&app);
+    let old_key = prefs.ptt_key.clone();
     prefs.ptt_key = key.clone();
     save_preferences(&app, &prefs);
 
