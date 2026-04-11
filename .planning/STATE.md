@@ -70,6 +70,7 @@ New for v2.0 (from research):
 |----|-------------|------|
 | 260409-wj5 | Remove unused AssemblyAiSessionBegin struct from ptt.rs | 2026-04-10 |
 | 260409-wz8 | Fix PTT DeviceSink drop warning — capture tokio handle before std::thread::spawn | 2026-04-10 |
+| 260411-0mx | Make overlay visible on all macOS Spaces via visibleOnAllWorkspaces: true | 2026-04-11 |
 
 ### Pending Todos
 
