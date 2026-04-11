@@ -48,6 +48,12 @@ export async function setPttKey(key: string): Promise<string> {
   return invoke<string>("cmd_set_ptt_key", { key });
 }
 
+// updatePttShortcut: persists new PTT key AND live re-registers the global shortcut.
+// Use this from settings UI. setPttKey is for persistence-only callers.
+export async function updatePttShortcut(key: string): Promise<string> {
+  return invoke<string>("cmd_update_ptt_shortcut", { key });
+}
+
 export async function getAudioCuesEnabled(): Promise<boolean> {
   return invoke<boolean>("cmd_get_audio_cues_enabled");
 }
