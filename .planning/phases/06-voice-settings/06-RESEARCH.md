@@ -318,7 +318,7 @@ No missing dependencies.
 ### Wave 0 Gaps
 - [ ] Rust unit test for `cmd_update_ptt_shortcut` key validation — covers VOICE-02 PTT configuration
 
-## Open Questions
+## Open Questions (RESOLVED)
 
 1. **PTT shortcut re-registration in settings screen**
    - What we know: `cmd_set_ptt_key` persists only. `update_shortcut()` pattern exists for overlay shortcut.
