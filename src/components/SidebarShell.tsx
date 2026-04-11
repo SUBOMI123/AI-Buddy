@@ -78,6 +78,9 @@ export function SidebarShell() {
   let unlistenRegionSelected: (() => void) | undefined;
   let unlistenRegionCancelled: (() => void) | undefined;
   let abortController: AbortController | null = null;
+  // WR-01: generation counter guards against double-submit races.
+  // Each submitIntent call captures its own generation; stale callbacks are discarded.
+  let submitGen = 0;
 
   onMount(async () => {
     try {
@@ -205,6 +208,9 @@ export function SidebarShell() {
   };
 
   const submitIntent = async (intent: string, forceFullSteps = false) => {
+    // WR-01: capture generation before any await so stale callbacks can self-discard
+    const thisGen = ++submitGen;
+
     // Clear STT error on new submission
     setSttError("");
 
@@ -297,10 +303,12 @@ export function SidebarShell() {
         setStreamingText(accumulatedText);     // signal for UI display
       },
       onError: (err) => {
+        if (thisGen !== submitGen) return; // WR-01: discard stale error from superseded request
         setErrorMessage(err);
         setContentState("error");
       },
       onDone: () => {
+        if (thisGen !== submitGen) return; // WR-01: discard stale done from superseded request
         if (contentState() === "loading") {
           setContentState("streaming");
         }
