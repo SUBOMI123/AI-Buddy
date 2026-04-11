@@ -49,10 +49,13 @@ async function checkRateLimit(
 
 const app = new Hono<App>();
 
-// CORS middleware — restricted to Tauri dev server origin.
-// Tauri production builds make requests from Rust (not a browser), so CORS is
-// irrelevant in production. This covers the dev-server case only.
-app.use('*', cors({ origin: 'http://localhost:1420' }));
+// CORS middleware — two origins are allowed:
+//   http://localhost:1420  — Vite dev server used during `cargo tauri dev`
+//   tauri://localhost      — Tauri custom URI scheme used in production builds on macOS/Windows.
+//                           Tauri production WebViews load content from the `tauri://` scheme,
+//                           not `http://`. Requests from Rust (non-browser) bypass CORS entirely;
+//                           this header is only needed for the WebView fetch calls.
+app.use('*', cors({ origin: ['http://localhost:1420', 'tauri://localhost'] }));
 
 // ---------------------------------------------------------------------------
 // Auth + rate-limit middleware (applied to all routes except /health)
