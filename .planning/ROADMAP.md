@@ -4,139 +4,33 @@
 
 Five phases take AI Buddy from nothing to a complete v1. Phase 1 establishes the Cloudflare proxy, Tauri shell, system tray, and overlay — the foundation everything else calls. Phase 2 delivers the first working vertical slice: user states intent, app captures the screen, Claude returns streaming guidance. Phase 3 adds voice so users never break eye contact with their work. Phase 4 lets users focus AI attention on a specific screen region. Phase 5 closes the loop with learning memory that makes the assistant smarter the more it's used.
 
-## Phases
+## Milestones
 
-**Phase Numbering:**
-- Integer phases (1, 2, 3): Planned milestone work
-- Decimal phases (2.1, 2.2): Urgent insertions (marked with INSERTED)
+### ✅ v1.0 — Foundation + Core Loop + Voice + Learning (completed 2026-04-11)
 
-Decimal phases appear between their surrounding integers in numeric order.
+7 phases, 15 plans, 18 requirements. Full details: [.planning/milestones/v1.0-ROADMAP.md](.planning/milestones/v1.0-ROADMAP.md)
 
-- [ ] **Phase 1: Infrastructure & App Shell** - Cloudflare Worker proxy, Tauri tray app, overlay, screen capture permissions validated
-- [ ] **Phase 2: Core AI Loop** - Text intent → screenshot → streaming Claude guidance; first working end-to-end flow
-- [ ] **Phase 3: Voice I/O** - Push-to-talk STT and TTS output for eyes-on-screen operation
-- [x] **Phase 4: Screen Region Selection** - Box-select or highlight to focus AI on a specific area (completed 2026-04-10)
-- [ ] **Phase 5: Learning & Adaptation** - Local memory, degrading guidance, derived skill profiles
+<details>
+<summary>v1.0 phase list</summary>
 
-## Phase Details
+| Phase | Description | Status |
+|-------|-------------|--------|
+| 1. Infrastructure & App Shell | Cloudflare Worker proxy, Tauri tray app, overlay, screen capture permissions | Complete |
+| 2. Core AI Loop | Text intent → screenshot → streaming Claude guidance | Complete |
+| 3. Voice I/O | Push-to-talk STT and TTS output | Complete |
+| 4. Screen Region Selection | Box-select to focus AI on a specific area | Complete |
+| 5. Learning & Adaptation | Local memory, degrading guidance, skill profiles | Complete |
+| 6. Voice Settings | TTS auto-play toggle, PTT key-capture field in settings | Complete |
+| 7. Production Readiness | CORS fix, dead export removal, placeholder docs, .env.example | Complete |
 
-### Phase 1: Infrastructure & App Shell
-**Goal**: The technical skeleton is deployed and validated — proxy is live, app lives in the system tray, overlay renders without stealing focus, and screen capture permissions are granted on both platforms
-**Depends on**: Nothing (first phase)
-**Requirements**: INFRA-01, INFRA-02, FOUND-01, FOUND-02, FOUND-03, FOUND-04, FOUND-05
-**Success Criteria** (what must be TRUE):
-  1. Cloudflare Worker is deployed and returns a test response through the proxy without exposing API keys in the app binary
-  2. App appears in the system tray / menu bar with no dock icon and no window switcher entry on both macOS and Windows
-  3. Global keyboard shortcut invokes the overlay from any foreground app without that app losing focus
-  4. Overlay panel renders on screen and can be dismissed without obscuring the user's active work area
-  5. App requests and receives screen capture permission on first launch with a clear explanation of what is captured and why
-**Plans**: 3 plans
-Plans:
-- [x] 01-01-PLAN.md — Cloudflare Worker proxy with Hono routing, auth middleware, and route stubs
-- [x] 01-02-PLAN.md — Tauri v2 scaffold, system tray, global shortcut, overlay window config
-- [x] 01-03-PLAN.md — SolidJS frontend UI: sidebar shell, components, theme, permission flow
-**UI hint**: yes
+</details>
 
-### Phase 2: Core AI Loop
-**Goal**: Users can describe what they want to do, the app captures the current screen, and Claude streams back actionable step-by-step guidance — the core product loop works end-to-end
-**Depends on**: Phase 1
-**Requirements**: CORE-01, CORE-02, CORE-03, CORE-04, CORE-05
-**Success Criteria** (what must be TRUE):
-  1. User types intent ("I want to do X") and receives directional, flow-correct guidance within 3-5 seconds of submission
-  2. Guidance text streams into the overlay in real-time — characters appear progressively, not as a single block
-  3. Screenshot of the current screen is captured on demand and sent to Claude as visual context without being stored locally
-  4. When intent is ambiguous, the AI asks a clarifying question instead of generating a guess
-  5. User can complete a task in an unfamiliar app using only the guidance provided
-**Plans**: 3 plans
-Plans:
-- [ ] 02-01-PLAN.md — Rust screenshot capture, HMAC token signing, Worker system prompt fix, frontend AI streaming module
-- [ ] 02-02-PLAN.md — Frontend UI wiring: LoadingDots, GuidanceList streaming, SidebarShell state machine
-- [ ] 02-03-PLAN.md — Human verification of end-to-end AI guidance loop
-**UI hint**: yes
+## Next Milestone
 
-### Phase 3: Voice I/O
-**Goal**: Users can interact with AI Buddy entirely by voice — push to talk, speak their intent, and hear guidance read back — keeping eyes on the work
-**Depends on**: Phase 2
-**Requirements**: VOICE-01, VOICE-02
-**Success Criteria** (what must be TRUE):
-  1. User holds a key, speaks intent, releases, and the transcribed text populates as if typed — no keyboard required
-  2. Guidance text is spoken aloud via TTS at a pace and volume suitable for following along while looking at another app
-  3. Voice pipeline streams STT in real-time so submission begins before the user finishes speaking (not batch-transcribed after release)
-**Plans**: 3 plans
-Plans:
-- [ ] 03-01-PLAN.md — Rust PTT shortcut (Pressed+Released), cpal mic capture on std::thread, AssemblyAI WebSocket pipeline, audio cues, mic permission entries
-- [ ] 03-02-PLAN.md — Worker /stt and /tts routes implemented, Rust play_tts command, TypeScript IPC wrappers
-- [ ] 03-03-PLAN.md — SolidJS frontend wiring: TextInput PTT state, SidebarShell STT events, GuidanceList Play button
-**UI hint**: yes
-
-### Phase 4: Screen Region Selection
-**Goal**: Users can draw a box around any part of the screen to focus the AI's attention on a specific area, producing more accurate and targeted guidance
-**Depends on**: Phase 2
-**Requirements**: SCRN-01
-**Success Criteria** (what must be TRUE):
-  1. User can draw a selection rectangle over any part of the screen and that region — not the full screenshot — is sent as AI context
-  2. Selected region is visually indicated before submission so the user confirms what will be captured
-  3. AI guidance explicitly references elements visible in the selected region rather than the broader screen
-**Plans**: 3 plans
-Plans:
-- [x] 04-01-PLAN.md — Rust capture_region command, window show/hide commands, tauri.conf.json region-select window declaration, lib.rs registration
-- [x] 04-02-PLAN.md — RegionSelect.tsx overlay component, index.tsx hash routing, tauri.ts IPC wrappers
-- [x] 04-03-PLAN.md — SidebarShell region state machine, TextInput Crop button, thumbnail preview, human verification
-**UI hint**: yes
-
-### Phase 5: Learning & Adaptation
-**Goal**: The assistant gets smarter with use — tracking what users struggle with and completing, deriving skill profiles, and shortening guidance for concepts the user has already mastered
-**Depends on**: Phase 2
-**Requirements**: LEARN-01, LEARN-02, LEARN-03
-**Success Criteria** (what must be TRUE):
-  1. After a task is completed, a record of that completion (app, task type, outcome) is written to local storage — visible and inspectable by the user
-  2. On second encounter with the same task type, guidance is measurably shorter than first encounter; on third+ it becomes hints only
-  3. A derived skill profile summarizing strengths and recurring struggles is accessible to the user without requiring manual input
-  4. All learning data is stored locally — no learning data leaves the device
-**Plans**: 3 plans
-Plans:
-- [x] 05-01-PLAN.md — Rust memory.rs (DB schema, 4 commands, Rust tests), Cargo.toml (rusqlite 0.39), lib.rs managed state, Worker /classify route
-- [x] 05-02-PLAN.md — ai.ts tier-aware prompt injection, tauri.ts memory IPC wrappers, SidebarShell.tsx memory integration + degradation notice UI
-- [x] 05-03-PLAN.md — SettingsScreen.tsx skill profile component, SidebarShell gear icon + content swap, human verification
-
-### Phase 6: Voice Settings
-**Goal**: Close the VOICE-02 UX gap — users can enable TTS auto-play and configure their PTT key from within the app settings screen, without editing settings.json manually
-**Depends on**: Phase 3, Phase 5
-**Requirements**: VOICE-02
-**Success Criteria** (what must be TRUE):
-  1. SettingsScreen has a "Voice" section with a TTS auto-play toggle that persists across app restarts
-  2. PTT key is configurable from the settings screen — user can change it without editing files
-  3. `_currentTaskLabel` signal is either surfaced in settings or removed (no dead code)
-**Plans**: 1 plan
-Plans:
-- [x] 06-01-PLAN.md — SettingsScreen voice preferences section (TTS toggle, PTT key input), settings persistence, _currentTaskLabel cleanup
-**UI hint**: yes
-
-### Phase 7: Production Readiness
-**Goal**: Harden the app for public release — fix CORS origin, unify WORKER_URL config, remove dead exports, and document placeholder replacements
-**Depends on**: Phase 1
-**Requirements**: INFRA-01, INFRA-02
-**Success Criteria** (what must be TRUE):
-  1. Worker CORS origin is `tauri://localhost` (not `localhost:1420`) for production builds
-  2. WORKER_URL has a single config source used by both frontend (Vite env) and Rust backend
-  3. Dead exports (`closeRegionSelect`, `onOverlayHidden`) removed from tauri.ts
-  4. KV namespace ID, auto-updater endpoint, and wrangler.toml placeholders documented with clear replacement instructions
-**Plans**: 1 plan
-Plans:
-- [x] 07-01-PLAN.md — CORS fix, WORKER_URL unification, dead export removal, placeholder documentation
-**UI hint**: no
+*(Not yet planned — run `/gsd-new-milestone` to define v2.0 goals, requirements, and roadmap.)*
 
 ## Progress
 
-**Execution Order:**
-Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7
-
-| Phase | Plans Complete | Status | Completed |
-|-------|----------------|--------|-----------|
-| 1. Infrastructure & App Shell | 0/3 | Planning complete | - |
-| 2. Core AI Loop | 0/3 | Planning complete | - |
-| 3. Voice I/O | 0/3 | Planning complete | - |
-| 4. Screen Region Selection | 3/3 | Complete   | 2026-04-10 |
-| 5. Learning & Adaptation | 3/3 | Complete | 2026-04-10 |
-| 6. Voice Settings | 1/1 | Complete | 2026-04-11 |
-| 7. Production Readiness | 1/1 | Complete | 2026-04-11 |
+| Milestone | Phases | Status | Completed |
+|-----------|--------|--------|-----------|
+| v1.0 | 7 phases | ✅ Complete | 2026-04-11 |
