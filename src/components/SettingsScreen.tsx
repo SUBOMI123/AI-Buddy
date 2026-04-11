@@ -7,20 +7,65 @@ interface SettingsScreenProps {
   onTtsChange: (val: boolean) => void;
 }
 
+/** Convert Tauri accelerator string to human-readable symbols.
+ *  "CommandOrControl+Shift+V" → "⌘⇧V"
+ */
+function tauriToDisplay(key: string): string {
+  const symbolMap: Record<string, string> = {
+    "CommandOrControl": "⌘",
+    "Command": "⌘",
+    "Control": "⌃",
+    "Ctrl": "⌃",
+    "Shift": "⇧",
+    "Alt": "⌥",
+    "Option": "⌥",
+  };
+  return key
+    .split("+")
+    .map((part) => symbolMap[part] ?? part)
+    .join("");
+}
+
+/** Build a Tauri accelerator string from a KeyboardEvent. Returns null if only modifiers pressed. */
+function eventToTauri(e: KeyboardEvent): string | null {
+  if (["Meta", "Control", "Shift", "Alt"].includes(e.key)) return null;
+
+  const parts: string[] = [];
+  if (e.metaKey || e.ctrlKey) parts.push("CommandOrControl");
+  if (e.altKey) parts.push("Alt");
+  if (e.shiftKey) parts.push("Shift");
+
+  let keyName: string;
+  if (e.code.startsWith("Key")) {
+    keyName = e.code.slice(3); // KeyB → B
+  } else if (e.code.startsWith("Digit")) {
+    keyName = e.code.slice(5); // Digit1 → 1
+  } else {
+    keyName = e.key; // F1, Space, Tab, Backspace, etc.
+  }
+
+  parts.push(keyName);
+  return parts.join("+");
+}
+
 export function SettingsScreen(props: SettingsScreenProps) {
   const [profile, setProfile] = createSignal<SkillProfile | null>(null);
   const [loading, setLoading] = createSignal(true);
   const [error, setError] = createSignal("");
 
-  const [pttKey, setPttKeyLocal] = createSignal("");
+  const [pttKey, setPttKeyLocal] = createSignal(""); // Tauri format, e.g. "CommandOrControl+Shift+V"
+  const [pttDisplay, setPttDisplay] = createSignal(""); // Symbol format, e.g. "⌘⇧V"
   const [pttSaveError, setPttSaveError] = createSignal("");
   const [pttSaving, setPttSaving] = createSignal(false);
+  const [pttListening, setPttListening] = createSignal(false);
+
+  let captureRef: HTMLButtonElement | undefined;
 
   onMount(async () => {
-    // Load PTT key
     try {
       const key = await getPttKey();
       setPttKeyLocal(key);
+      setPttDisplay(tauriToDisplay(key));
     } catch {
       // Leave empty — will show placeholder
     }
@@ -28,27 +73,51 @@ export function SettingsScreen(props: SettingsScreenProps) {
     try {
       const data = await getSkillProfile();
       setProfile(data);
-    } catch (e) {
+    } catch {
       setError("Couldn't load your skill profile.");
     } finally {
       setLoading(false);
     }
   });
 
-  const handlePttSave = async () => {
-    const key = pttKey().trim();
-    if (!key) return;
+  const handlePttSave = async (tauriKey: string) => {
+    if (!tauriKey) return;
     setPttSaving(true);
     setPttSaveError("");
     try {
-      await updatePttShortcut(key);
-      setPttSaveError("");
+      await updatePttShortcut(tauriKey);
+      setPttKeyLocal(tauriKey);
+      setPttDisplay(tauriToDisplay(tauriKey));
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : String(e);
-      setPttSaveError(msg || "Invalid key format");
+      setPttSaveError(msg || "Failed to register shortcut");
+      // Revert display to last saved key
+      setPttDisplay(tauriToDisplay(pttKey()));
     } finally {
       setPttSaving(false);
     }
+  };
+
+  const handleStartListening = () => {
+    setPttListening(true);
+    setPttSaveError("");
+    captureRef?.focus();
+  };
+
+  const handleKeyCapture = async (e: KeyboardEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+
+    if (e.key === "Escape") {
+      setPttListening(false);
+      return;
+    }
+
+    const tauriKey = eventToTauri(e);
+    if (!tauriKey) return; // standalone modifier — keep listening
+
+    setPttListening(false);
+    await handlePttSave(tauriKey);
   };
 
   return (
@@ -120,7 +189,7 @@ export function SettingsScreen(props: SettingsScreenProps) {
             />
           </div>
 
-          {/* PTT key row */}
+          {/* PTT key row — key capture */}
           <div style={{
             display: "flex",
             "flex-direction": "column",
@@ -130,26 +199,47 @@ export function SettingsScreen(props: SettingsScreenProps) {
             <span style={{ "font-size": "var(--font-size-body)", color: "var(--color-text-primary)" }}>
               Push-to-talk key
             </span>
-            <input
-              type="text"
-              value={pttKey()}
-              onInput={(e) => setPttKeyLocal(e.currentTarget.value)}
-              onBlur={handlePttSave}
-              onKeyDown={(e) => { if (e.key === "Enter") { e.currentTarget.blur(); } }}
-              placeholder="e.g. CommandOrControl+Shift+V"
+
+            {/* Key capture button */}
+            <button
+              ref={captureRef}
+              onClick={handleStartListening}
+              onKeyDown={pttListening() ? handleKeyCapture : undefined}
+              onBlur={() => setPttListening(false)}
               disabled={pttSaving()}
               style={{
+                display: "flex",
+                "align-items": "center",
+                "justify-content": "space-between",
                 "font-size": "var(--font-size-label)",
-                color: "var(--color-text-primary)",
+                color: pttListening() ? "var(--color-text-secondary)" : "var(--color-text-primary)",
                 background: "var(--color-surface)",
-                border: `1px solid ${pttSaveError() ? "var(--color-accent)" : "var(--color-border)"}`,
+                border: `1px solid ${pttSaveError() ? "var(--color-accent)" : pttListening() ? "var(--color-accent)" : "var(--color-border)"}`,
                 "border-radius": "var(--radius-sm)",
                 padding: "var(--space-xs) var(--space-sm)",
                 width: "100%",
                 "box-sizing": "border-box",
+                cursor: pttSaving() ? "not-allowed" : "pointer",
+                "min-height": "44px",
+                "text-align": "left",
               }}
-              aria-label="Push-to-talk key binding"
-            />
+              aria-label="Click to set push-to-talk key"
+            >
+              <span>
+                {pttListening()
+                  ? "Press your shortcut…"
+                  : pttDisplay() || "Click to set shortcut"}
+              </span>
+              <Show when={!pttListening() && pttDisplay()}>
+                <span style={{
+                  "font-size": "var(--font-size-label)",
+                  color: "var(--color-text-secondary)",
+                  "margin-left": "var(--space-sm)",
+                  "flex-shrink": "0",
+                }}>click to change</span>
+              </Show>
+            </button>
+
             <Show when={pttSaveError().length > 0}>
               <span style={{ "font-size": "var(--font-size-label)", color: "var(--color-accent)" }}>
                 {pttSaveError()}
@@ -157,7 +247,12 @@ export function SettingsScreen(props: SettingsScreenProps) {
             </Show>
             <Show when={pttSaving()}>
               <span style={{ "font-size": "var(--font-size-label)", color: "var(--color-text-secondary)" }}>
-                Saving...
+                Registering…
+              </span>
+            </Show>
+            <Show when={pttListening()}>
+              <span style={{ "font-size": "var(--font-size-label)", color: "var(--color-text-secondary)" }}>
+                Press Escape to cancel
               </span>
             </Show>
           </div>
