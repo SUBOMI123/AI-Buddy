@@ -23,7 +23,7 @@ pub fn register_shortcut(app: &tauri::AppHandle) -> Result<(), Box<dyn std::erro
         .on_shortcut(shortcut, move |app, _shortcut, event| {
             if event.state == ShortcutState::Pressed {
                 if let Some(window) = app.get_webview_window("overlay") {
-                    let _ = crate::window::toggle_overlay(&window);
+                    let _ = crate::window::toggle_overlay(app, &window);
                 }
             }
         })?;
@@ -166,7 +166,7 @@ pub fn update_shortcut(
         .on_shortcut(new_shortcut, move |app, _shortcut, event| {
             if event.state == ShortcutState::Pressed {
                 if let Some(window) = app.get_webview_window("overlay") {
-                    let _ = crate::window::toggle_overlay(&window);
+                    let _ = crate::window::toggle_overlay(app, &window);
                 }
             }
         })?;
