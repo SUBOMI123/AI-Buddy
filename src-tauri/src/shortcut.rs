@@ -92,6 +92,58 @@ pub fn register_ptt_shortcut(app: &tauri::AppHandle) -> Result<(), Box<dyn std::
     Ok(())
 }
 
+/// Update the PTT shortcut: unregister old key, register new key with same PTT handler.
+/// Called by cmd_update_ptt_shortcut in preferences.rs after persistence.
+pub fn update_ptt_shortcut(
+    app: &tauri::AppHandle,
+    old_key_str: &str,
+    new_key_str: &str,
+) -> Result<(), Box<dyn std::error::Error>> {
+    // Unregister old PTT shortcut (ignore error — may not be registered if first set)
+    if let Ok(old_shortcut) = old_key_str.parse::<Shortcut>() {
+        let _ = app.global_shortcut().unregister(old_shortcut);
+    }
+
+    // Parse new key (caller already validated, but guard here too)
+    let new_shortcut: Shortcut = new_key_str.parse().map_err(|_| {
+        Box::<dyn std::error::Error>::from(format!("Invalid PTT key: {}", new_key_str))
+    })?;
+
+    // Register new PTT shortcut with the same handler as register_ptt_shortcut
+    app.global_shortcut()
+        .on_shortcut(new_shortcut, move |app, _shortcut, event| {
+            let prefs = crate::preferences::load_preferences(app);
+            let audio_cues = prefs.audio_cues_enabled;
+
+            match event.state {
+                ShortcutState::Pressed => {
+                    if crate::voice::ptt::IS_PTT_ACTIVE.load(std::sync::atomic::Ordering::SeqCst) {
+                        return;
+                    }
+                    let app_handle = app.clone();
+                    let worker_url = option_env!("WORKER_URL")
+                        .unwrap_or("http://localhost:8787")
+                        .to_string();
+                    let app_token = crate::preferences::cmd_get_token(app_handle.clone());
+                    tauri::async_runtime::handle().spawn(async move {
+                        let _ = crate::voice::ptt::start_ptt_session(
+                            app_handle,
+                            worker_url,
+                            app_token,
+                            audio_cues,
+                        )
+                        .await;
+                    });
+                }
+                ShortcutState::Released => {
+                    crate::voice::ptt::stop_ptt_session(audio_cues);
+                }
+            }
+        })?;
+
+    Ok(())
+}
+
 /// Update the global shortcut: unregister old, register new (per D-06).
 pub fn update_shortcut(
     app: &tauri::AppHandle,

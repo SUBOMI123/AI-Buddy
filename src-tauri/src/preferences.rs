@@ -155,6 +155,33 @@ pub fn cmd_set_ptt_key(app: AppHandle, key: String) -> Result<String, String> {
     Ok(key)
 }
 
+/// Tauri command: update PTT key binding AND live re-register the global shortcut.
+/// Use this (not cmd_set_ptt_key) when changing the PTT key from the settings UI.
+/// cmd_set_ptt_key persists only; this command persists + re-registers so the change
+/// takes effect immediately without an app restart.
+#[tauri::command]
+pub fn cmd_update_ptt_shortcut(app: AppHandle, key: String) -> Result<String, String> {
+    // Validate key format before touching any state
+    let _parsed: Result<tauri_plugin_global_shortcut::Shortcut, _> = key.parse();
+    if _parsed.is_err() {
+        return Err(format!("Invalid PTT key: {}", key));
+    }
+
+    // Read old key before saving
+    let old_key = load_preferences(&app).ptt_key.clone();
+
+    // Persist new key
+    let mut prefs = load_preferences(&app);
+    prefs.ptt_key = key.clone();
+    save_preferences(&app, &prefs);
+
+    // Live re-register the shortcut
+    crate::shortcut::update_ptt_shortcut(&app, &old_key, &key)
+        .map_err(|e| format!("Failed to update PTT shortcut: {}", e))?;
+
+    Ok(key)
+}
+
 /// Tauri command: get whether audio cues are enabled
 #[tauri::command]
 pub fn cmd_get_audio_cues_enabled(app: AppHandle) -> bool {
@@ -181,4 +208,30 @@ pub fn cmd_set_tts_enabled(app: AppHandle, enabled: bool) {
     let mut prefs = load_preferences(&app);
     prefs.tts_enabled = enabled;
     save_preferences(&app, &prefs);
+}
+
+#[cfg(test)]
+mod tests {
+    use tauri_plugin_global_shortcut::Shortcut;
+
+    fn is_valid_shortcut(key: &str) -> bool {
+        key.parse::<Shortcut>().is_ok()
+    }
+
+    #[test]
+    fn valid_ptt_key_parses() {
+        assert!(is_valid_shortcut("CommandOrControl+Shift+B"));
+    }
+
+    #[test]
+    fn default_ptt_key_parses() {
+        assert!(is_valid_shortcut("CommandOrControl+Shift+V"));
+    }
+
+    #[test]
+    fn invalid_ptt_key_does_not_parse() {
+        assert!(!is_valid_shortcut("not a shortcut"));
+        assert!(!is_valid_shortcut("ctrl alt 5"));
+        assert!(!is_valid_shortcut(""));
+    }
 }

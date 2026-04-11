@@ -24,6 +24,7 @@ pub fn run() {
             preferences::cmd_get_token,
             preferences::cmd_get_ptt_key,
             preferences::cmd_set_ptt_key,
+            preferences::cmd_update_ptt_shortcut,
             preferences::cmd_get_audio_cues_enabled,
             preferences::cmd_set_audio_cues_enabled,
             preferences::cmd_get_tts_enabled,
