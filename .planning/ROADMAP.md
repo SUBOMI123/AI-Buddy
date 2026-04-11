@@ -47,7 +47,10 @@ Five phases take AI Buddy from nothing to a complete v1. Phase 1 establishes the
   2. The AI prompt context includes the name of the frontmost application (e.g., "VS Code", "Terminal") when guidance is requested
   3. App name is sourced from Rust OS call — no screenshot analysis involved
   4. Existing overlay behavior (single monitor, no app detection) is unchanged when on the primary monitor
-**Plans**: TBD
+**Plans**: 2 plans
+Plans:
+- [ ] 08-01-PLAN.md — Multi-monitor overlay positioning: cursor-based monitor detection + Physical-unit fix in window.rs
+- [ ] 08-02-PLAN.md — App detection: active-win-pos-rs Tauri command + frontend signal + AI prompt injection
 **UI hint**: no
 
 ### Phase 9: State Machine + Conversation Continuity
@@ -91,7 +94,7 @@ Five phases take AI Buddy from nothing to a complete v1. Phase 1 establishes the
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 8. Backend Foundations | 0/? | Not started | - |
+| 8. Backend Foundations | 0/2 | Not started | - |
 | 9. State Machine + Conversation Continuity | 0/? | Not started | - |
 | 10. Step Tracking + Response Quality | 0/? | Not started | - |
 | 11. Action-First UI | 0/? | Not started | - |
