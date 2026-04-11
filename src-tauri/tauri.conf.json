@@ -64,8 +64,9 @@
   },
   "plugins": {
     "updater": {
+      "_comment_endpoints": "PRODUCTION REQUIRED — replace placeholder domain with your actual release server URL before shipping",
       "endpoints": ["https://releases.aibuddy.app/{{target}}/{{arch}}/{{current_version}}"],
-      "pubkey": "GENERATE-BEFORE-RELEASE: run `cargo tauri signer generate -w ~/.tauri/ai-buddy.key` and paste public key here"
+      "pubkey": "PRODUCTION REQUIRED — run: cargo tauri signer generate -w ~/.tauri/ai-buddy.key  |  paste the public key output here before building a release"
     }
   }
 }
