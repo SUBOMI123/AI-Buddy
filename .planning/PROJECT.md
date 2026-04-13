@@ -8,9 +8,16 @@ A cross-platform desktop app that helps you use any software — even if you've 
 
 Users complete tasks in unfamiliar software without Googling or getting stuck. If everything else fails, this must work: user says what they want to do → AI gives clear steps → user does it.
 
-## Current Milestone: v3.0 — (to be defined)
+## Current Milestone: v3.0 — Ship
 
-Run `/gsd-new-milestone` to define the next milestone's goals, requirements, and roadmap.
+**Goal:** Take AI Buddy from working prototype to a real product that beta users can download and run on macOS and Windows.
+
+**Target features:**
+- Cloudflare Worker deployed (KV namespace live, backend real)
+- Auto-updater configured (endpoint + signing pubkey)
+- Code signing & notarization — macOS + Windows
+- Reproducible signed build pipeline (CI or scripted)
+- Closed beta distribution — private download link
 
 ## Requirements
 
@@ -59,9 +66,9 @@ Run `/gsd-new-milestone` to define the next milestone's goals, requirements, and
 
 - [ ] **CTX-02**: AI-suggested quick action button labels reflect the active app context (e.g. "Debug error" in Terminal) — deferred from v2.0 Phase 11 (D-08); system prompt app injection works, button label personalization is future scope
 
-### Active
+### Active (v3.0)
 
-*(None — all defined requirements validated or deferred. Next requirements defined at `/gsd-new-milestone`.)*
+*(To be defined — see REQUIREMENTS.md after milestone planning completes.)*
 
 ### Out of Scope
 
@@ -118,4 +125,4 @@ Run `/gsd-new-milestone` to define the next milestone's goals, requirements, and
 This document evolves at phase transitions and milestone boundaries.
 
 ---
-*Last updated: 2026-04-13 after v2.0 milestone — Task-Native Experience*
+*Last updated: 2026-04-13 — v3.0 milestone started: Ship*

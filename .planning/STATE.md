@@ -1,9 +1,9 @@
 ---
 gsd_state_version: 1.0
 milestone: v3.0
-milestone_name: (to be defined)
-status: idle
-stopped_at: v2.0 milestone complete — archived 2026-04-13
+milestone_name: Ship
+status: active
+stopped_at: ~
 last_updated: "2026-04-13T23:00:00.000Z"
 last_activity: 2026-04-13
 progress:
@@ -21,13 +21,14 @@ progress:
 See: .planning/PROJECT.md (updated 2026-04-13)
 
 **Core value:** Users complete tasks in unfamiliar software without Googling or getting stuck
-**Current focus:** Planning v3.0 — run `/gsd-new-milestone` to define
+**Current focus:** v3.0 — Ship (deploy, sign, distribute to beta users)
 
 ## Current Position
 
-Milestone: v2.0 — COMPLETE (archived)
-Status: Idle — ready for next milestone definition
-Last activity: 2026-04-13
+Phase: Not started (defining requirements)
+Plan: —
+Status: Defining requirements
+Last activity: 2026-04-13 — Milestone v3.0 started
 
 ## Accumulated Context
 
