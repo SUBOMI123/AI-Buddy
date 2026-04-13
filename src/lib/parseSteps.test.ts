@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { parseSteps } from "./parseSteps";
+import { parseSteps, isClarifyingQuestion } from "./parseSteps";
 
 describe("parseSteps", () => {
   // Case 1: Compliance check — text not starting with "1." returns []
@@ -54,5 +54,36 @@ describe("parseSteps", () => {
   it("all returned steps have completed: false", () => {
     const result = parseSteps("1. Step one\n2. Step two\n3. Step three");
     expect(result.every((s) => s.completed === false)).toBe(true);
+  });
+
+  it("preserves inline backtick commands within step label", () => {
+    const result = parseSteps("1. List branches: `git branch`\n2. Switch to main: `git checkout main`");
+    expect(result).toHaveLength(2);
+    expect(result[0].label).toBe("List branches: `git branch`");
+    expect(result[1].label).toBe("Switch to main: `git checkout main`");
+  });
+});
+
+describe("isClarifyingQuestion", () => {
+  it("returns true for single step ending with '?'", () => {
+    const steps = [{ label: "What do you want to do?", completed: false }];
+    expect(isClarifyingQuestion(steps)).toBe(true);
+  });
+
+  it("returns false for empty steps array", () => {
+    expect(isClarifyingQuestion([])).toBe(false);
+  });
+
+  it("returns false for single step NOT ending with '?'", () => {
+    const steps = [{ label: "Click the button", completed: false }];
+    expect(isClarifyingQuestion(steps)).toBe(false);
+  });
+
+  it("returns false for multiple steps even if last ends with '?'", () => {
+    const steps = [
+      { label: "Step one", completed: false },
+      { label: "What next?", completed: false },
+    ];
+    expect(isClarifyingQuestion(steps)).toBe(false);
   });
 });
