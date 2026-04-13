@@ -41,7 +41,7 @@
 
 ### v3.0 — Ship
 
-- [ ] **Phase 12: Worker Deploy** — KV namespace provisioned, Worker live in production with rate limiting enforced
+- [x] **Phase 12: Worker Deploy** — KV namespace provisioned, Worker live in production with rate limiting enforced (completed 2026-04-13)
 - [ ] **Phase 13: Quota & Monetization** — Free tier limits enforced server-side, Stripe subscriptions wired, paid users bypass quotas
 - [ ] **Phase 14: Code Signing** — macOS signed + notarized, entitlements correct, Windows beta docs ready
 - [ ] **Phase 15: CI Pipeline & Auto-Updater** — GitHub Actions release workflow produces signed builds, updater live
@@ -61,9 +61,9 @@
   3. Making more than 20 guidance requests from a single user identifier in one day causes the Worker to return a structured quota-exceeded response, not an error or a pass-through
 **Plans**: 3 plans
 Plans:
-- [ ] 12-01-PLAN.md — Fix stale tests + add checkQuota() enforcement in /chat (Worker code only)
-- [ ] 12-02-PLAN.md — Provision KV namespace, deploy Worker to production, set secrets
-- [ ] 12-03-PLAN.md — Fix memory.rs runtime env var, wire production URL into Rust build config, smoke test
+- [x] 12-01-PLAN.md — Fix stale tests + add checkQuota() enforcement in /chat (Worker code only)
+- [x] 12-02-PLAN.md — Provision KV namespace, deploy Worker to production, set secrets
+- [x] 12-03-PLAN.md — Fix memory.rs runtime env var, wire production URL into Rust build config, smoke test
 
 ### Phase 13: Quota & Monetization
 **Goal**: Free tier users see their usage limits enforced and displayed, and paid subscribers can bypass all limits via Stripe
@@ -76,7 +76,10 @@ Plans:
   4. Clicking "Upgrade" in the app opens the system browser to a Stripe Checkout page
   5. After completing payment, the app calls `/refresh-subscription` and the UI reflects paid status without a restart
   6. A paid subscriber can make more than 20 guidance queries in a single day without hitting any quota error
-**Plans**: TBD
+**Plans**: 2 plans
+Plans:
+- [ ] 13-01-PLAN.md — Worker: STT/TTS quota, subscription bypass, Stripe endpoints, X-Quota-Remaining header
+- [ ] 13-02-PLAN.md — App UI: quota badge, QuotaBanner, quota_exceeded UI, Upgrade flow, opener plugin
 
 ### Phase 14: Code Signing
 **Goal**: macOS builds pass Gatekeeper and notarization without warnings; entitlements and Info.plist are correct; Windows beta onboarding is documented
@@ -121,8 +124,8 @@ Plans:
 | 9. State Machine + Conversation Continuity | v2.0 | 3/3 | Complete | 2026-04-13 |
 | 10. Step Tracking + Response Quality | v2.0 | 4/4 | Complete | 2026-04-13 |
 | 11. Action-First UI | v2.0 | 3/3 | Complete | 2026-04-13 |
-| 12. Worker Deploy | v3.0 | 0/3 | Not started | — |
-| 13. Quota & Monetization | v3.0 | 0/? | Not started | — |
+| 12. Worker Deploy | v3.0 | 3/3 | Complete   | 2026-04-13 |
+| 13. Quota & Monetization | v3.0 | 0/2 | Not started | — |
 | 14. Code Signing | v3.0 | 0/? | Not started | — |
 | 15. CI Pipeline & Auto-Updater | v3.0 | 0/? | Not started | — |
 | 16. Distribution | v3.0 | 0/? | Not started | — |
