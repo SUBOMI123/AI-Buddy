@@ -33,7 +33,7 @@ Five phases take AI Buddy from nothing to a complete v1. Phase 1 establishes the
 
 - [x] **Phase 8: Backend Foundations** — App detection (active window name via Rust) + multi-monitor overlay positioning via cursor, with pre-existing window.rs unit bug fixed (completed 2026-04-11)
 - [ ] **Phase 9: State Machine + Conversation Continuity** — SidebarShell state machine stabilized, multi-turn conversation history with token-safe history, task header, session reset logic
-- [ ] **Phase 10: Step Tracking + Response Quality** — GuidanceList step checklist, click-to-mark/jump, response history scrollback, step-first response enforcement, inline copy buttons
+- [x] **Phase 10: Step Tracking + Response Quality** — GuidanceList step checklist, click-to-mark/jump, response history scrollback, step-first response enforcement, inline copy buttons (completed 2026-04-13)
 - [ ] **Phase 11: Action-First UI** — QuickActions component with context-sensitive fixed buttons, async AI-suggested actions, "try another way" button
 
 ## Phase Details
@@ -81,10 +81,10 @@ Plans:
   5. Prior guidance exchanges from the current session are scrollable above the current response
 **Plans**: 4 plans
 Plans:
-- [ ] 10-W0-PLAN.md — Vitest test scaffold: vitest.config.ts + parseSteps.test.ts (Wave 0 — RED tests)
-- [ ] 10-01-PLAN.md — parseSteps.ts implementation (GREEN tests) + SYSTEM_PROMPT replacement (RESP-01, RESP-03, STEP-01, STEP-03)
-- [ ] 10-02-PLAN.md — New components: StepChecklist.tsx + RawGuidanceText.tsx (STEP-01, STEP-02, RESP-02)
-- [ ] 10-03-PLAN.md — SidebarShell wiring: currentExchange signal, lifecycle, JSX layout (STEP-01, STEP-02, STEP-03, RESP-01, RESP-02, RESP-03)
+- [x] 10-W0-PLAN.md — Vitest test scaffold: vitest.config.ts + parseSteps.test.ts (Wave 0 — RED tests)
+- [x] 10-01-PLAN.md — parseSteps.ts implementation (GREEN tests) + SYSTEM_PROMPT replacement (RESP-01, RESP-03, STEP-01, STEP-03)
+- [x] 10-02-PLAN.md — New components: StepChecklist.tsx + RawGuidanceText.tsx (STEP-01, STEP-02, RESP-02)
+- [x] 10-03-PLAN.md — SidebarShell wiring: currentExchange signal, lifecycle, JSX layout (STEP-01, STEP-02, STEP-03, RESP-01, RESP-02, RESP-03)
 **UI hint**: yes
 
 ### Phase 11: Action-First UI
@@ -105,5 +105,5 @@ Plans:
 |-------|----------------|--------|-----------|
 | 8. Backend Foundations | 2/2 | Complete   | 2026-04-11 |
 | 9. State Machine + Conversation Continuity | 2/3 | In Progress|  |
-| 10. Step Tracking + Response Quality | 0/4 | Not started | - |
+| 10. Step Tracking + Response Quality | 4/4 | Complete    | 2026-04-13 |
 | 11. Action-First UI | 0/? | Not started | - |
