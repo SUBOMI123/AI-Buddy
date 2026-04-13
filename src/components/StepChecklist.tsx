@@ -65,7 +65,7 @@ export function StepChecklist(props: StepChecklistProps) {
           // NOTE: with createSignal<Step[]>, step is a snapshot; SolidJS re-runs
           // For items when the array signal changes (see RESEARCH.md Pitfall 1)
           // Phase 10 UAT fix: isCurrent uses prop directly — not derived from first-incomplete
-          const isCurrent = () => index() === props.currentStepIndex && !step.completed;
+          const isCurrent = () => index() === props.currentStepIndex;
           const isCompleted = () => step.completed;
           const inlineCmd = () => extractInlineCommand(step.label);
           const showCopyButton = () => inlineCmd() !== null || isCommandLine(step.label);
