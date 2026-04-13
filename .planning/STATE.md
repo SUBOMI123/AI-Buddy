@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: — Foundation + Core Loop + Voice + Learning
 status: executing
-stopped_at: Completed 09-03-PLAN.md
-last_updated: "2026-04-13T02:05:15.543Z"
-last_activity: 2026-04-13
+stopped_at: Completed quick/260412-x4i
+last_updated: "2026-04-13T04:55:16.548Z"
+last_activity: 2026-04-13 -- Phase 10 execution started
 progress:
-  total_phases: 2
-  completed_phases: 2
-  total_plans: 5
-  completed_plans: 5
+  total_phases: 3
+  completed_phases: 3
+  total_plans: 9
+  completed_plans: 9
   percent: 100
 ---
 
@@ -25,10 +25,10 @@ See: .planning/PROJECT.md (updated 2026-04-11)
 
 ## Current Position
 
-Phase: 10 (step-tracking-response-quality) — PLANNING
-Plan: 0 of TBD
-Status: Context complete — ready for research + planning
-Last activity: 2026-04-12
+Phase: 10 (step-tracking-response-quality) — EXECUTING
+Plan: 1 of 4
+Status: Executing Phase 10
+Last activity: 2026-04-13 -- Phase 10 execution started
 
 Progress: [░░░░░░░░░░] 0%
 
@@ -72,6 +72,7 @@ New for v2.0 (from research):
 - [Phase 10]: Copy buttons on markdown fences + command-pattern lines (git, npm, npx, pip, cd, curl, docker, etc.) — navigator.clipboard API, no Tauri plugin
 - [Phase 10]: System prompt replaced with strict "start with 1. on line 1, no preamble" format
 - [Phase 10]: Prior session history stays flat muted text (no checklist on historical items)
+- [Phase quick]: isClarifyingQuestion heuristic: single step ending with '?' renders as RawGuidanceText — SYSTEM_PROMPT updated to use inline backticks not code blocks in numbered steps
 
 ### Quick Tasks Completed
 
@@ -80,6 +81,7 @@ New for v2.0 (from research):
 | 260409-wj5 | Remove unused AssemblyAiSessionBegin struct from ptt.rs | 2026-04-10 |
 | 260409-wz8 | Fix PTT DeviceSink drop warning — capture tokio handle before std::thread::spawn | 2026-04-10 |
 | 260411-0mx | Make overlay visible on all macOS Spaces via visibleOnAllWorkspaces: true | 2026-04-11 |
+| 260412-x4i | Fix Phase 10 UAT gaps: inline backtick steps (GAP-01), sidebar scroll (GAP-02), clarifying question prose (GAP-03) | 2026-04-12 |
 
 ### Pending Todos
 
@@ -92,6 +94,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-04-13T02:05:08.631Z
-Stopped at: Completed 09-03-PLAN.md
+Last session: 2026-04-13T04:55:10.438Z
+Stopped at: Completed quick/260412-x4i
 Resume file: None
