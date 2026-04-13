@@ -12,7 +12,7 @@ Take AI Buddy from working prototype to a real product that beta users can downl
 
 - [ ] **INFRA-03**: Cloudflare Worker KV namespace provisioned and wired — KV namespace ID replaces the PRODUCTION REQUIRED placeholder in wrangler.toml
 - [ ] **INFRA-04**: Cloudflare Worker deployed to production — all API proxy routes (Claude, STT, TTS) live and reachable from a production URL
-- [ ] **INFRA-05**: Rate limiting enforced via KV — Worker uses KV to track and enforce per-user daily quotas server-side
+- [ ] **INFRA-05**: Rate limiting and quota are two distinct enforcement layers in the Worker — rate limiting (`rate_limited` error code) is abuse protection (requests-per-second/minute), quota (`quota_exceeded` error code) is the product's daily feature limit; each returns a different structured error so the app can show the correct UI
 
 ### Quota & Monetization
 
@@ -22,10 +22,13 @@ Take AI Buddy from working prototype to a real product that beta users can downl
 - [ ] **QUOT-04**: When a free tier limit is hit, the Worker returns a structured quota-exceeded response (not a generic error) so the app can show an upgrade prompt
 - [ ] **QUOT-05**: App displays remaining quota to the user inline (e.g. "12 / 20 requests left today") — sourced from Worker response headers or a quota endpoint
 - [ ] **QUOT-06**: Paid subscribers bypass all daily quotas — Worker validates subscription status before enforcing limits
+- [ ] **QUOT-07**: Daily quotas reset on a rolling 24-hour window (not midnight UTC) — a user who first requests at 14:00 gets their quota reset at 14:00 the next day; window start time tracked per user in KV
+- [ ] **QUOT-08**: App shows a soft-limit warning when the user has 2 or fewer requests remaining in any quota category (e.g. "2 AI requests left today") — surfaced before the hard limit is hit to reduce frustration and increase upgrade conversion
 - [ ] **PAY-01**: Stripe subscription product created — monthly and/or annual plan configured in Stripe Dashboard
 - [ ] **PAY-02**: Clicking "Upgrade" in the app opens the system browser to a hosted Stripe Checkout page
 - [ ] **PAY-03**: After successful payment, Stripe webhook updates subscriber status in Cloudflare KV so the Worker recognises the user as paid
-- [ ] **PAY-04**: User identity is tied to a stable identifier (email or device ID) so quota and subscription status persists across app restarts
+- [ ] **PAY-04**: User identity is a UUID generated on first launch and persisted locally — sent with every Worker request as the user identifier; no login or email required for beta
+- [ ] **PAY-05**: After Stripe Checkout completes, the app calls a Worker `/refresh-subscription` endpoint to fetch the latest Stripe status and update KV immediately — UI reflects paid status without a restart (does not rely solely on webhook timing)
 
 ### Code Signing & Notarization
 
@@ -71,32 +74,33 @@ Take AI Buddy from working prototype to a real product that beta users can downl
 
 ## Traceability
 
-*(Populated by roadmapper)*
-
 | REQ-ID | Phase | Status |
 |--------|-------|--------|
-| INFRA-03 | — | — |
-| INFRA-04 | — | — |
-| INFRA-05 | — | — |
-| QUOT-01 | — | — |
-| QUOT-02 | — | — |
-| QUOT-03 | — | — |
-| QUOT-04 | — | — |
-| QUOT-05 | — | — |
-| QUOT-06 | — | — |
-| PAY-01 | — | — |
-| PAY-02 | — | — |
-| PAY-03 | — | — |
-| PAY-04 | — | — |
-| SIGN-01 | — | — |
-| SIGN-02 | — | — |
-| SIGN-03 | — | — |
-| SIGN-04 | — | — |
-| SIGN-05 | — | — |
-| UPDT-01 | — | — |
-| UPDT-02 | — | — |
-| UPDT-03 | — | — |
-| UPDT-04 | — | — |
-| DIST-01 | — | — |
-| DIST-02 | — | — |
-| DIST-03 | — | — |
+| INFRA-03 | Phase 12 | Pending |
+| INFRA-04 | Phase 12 | Pending |
+| INFRA-05 | Phase 12 | Pending |
+| QUOT-01 | Phase 13 | Pending |
+| QUOT-02 | Phase 13 | Pending |
+| QUOT-03 | Phase 13 | Pending |
+| QUOT-04 | Phase 13 | Pending |
+| QUOT-05 | Phase 13 | Pending |
+| QUOT-06 | Phase 13 | Pending |
+| QUOT-07 | Phase 13 | Pending |
+| QUOT-08 | Phase 13 | Pending |
+| PAY-01 | Phase 13 | Pending |
+| PAY-02 | Phase 13 | Pending |
+| PAY-03 | Phase 13 | Pending |
+| PAY-04 | Phase 13 | Pending |
+| PAY-05 | Phase 13 | Pending |
+| SIGN-01 | Phase 14 | Pending |
+| SIGN-02 | Phase 14 | Pending |
+| SIGN-03 | Phase 14 | Pending |
+| SIGN-04 | Phase 14 | Pending |
+| SIGN-05 | Phase 14 | Pending |
+| UPDT-01 | Phase 15 | Pending |
+| UPDT-02 | Phase 15 | Pending |
+| UPDT-03 | Phase 15 | Pending |
+| UPDT-04 | Phase 15 | Pending |
+| DIST-01 | Phase 16 | Pending |
+| DIST-02 | Phase 16 | Pending |
+| DIST-03 | Phase 16 | Pending |
