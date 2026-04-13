@@ -79,7 +79,12 @@ Plans:
   3. Every code block or terminal command in guidance has a one-click copy button that puts the content on the clipboard
   4. AI responses begin with numbered step 1 on the first line — no intro sentence or preamble precedes the steps
   5. Prior guidance exchanges from the current session are scrollable above the current response
-**Plans**: TBD
+**Plans**: 4 plans
+Plans:
+- [ ] 10-W0-PLAN.md — Vitest test scaffold: vitest.config.ts + parseSteps.test.ts (Wave 0 — RED tests)
+- [ ] 10-01-PLAN.md — parseSteps.ts implementation (GREEN tests) + SYSTEM_PROMPT replacement (RESP-01, RESP-03, STEP-01, STEP-03)
+- [ ] 10-02-PLAN.md — New components: StepChecklist.tsx + RawGuidanceText.tsx (STEP-01, STEP-02, RESP-02)
+- [ ] 10-03-PLAN.md — SidebarShell wiring: currentExchange signal, lifecycle, JSX layout (STEP-01, STEP-02, STEP-03, RESP-01, RESP-02, RESP-03)
 **UI hint**: yes
 
 ### Phase 11: Action-First UI
@@ -100,5 +105,5 @@ Plans:
 |-------|----------------|--------|-----------|
 | 8. Backend Foundations | 2/2 | Complete   | 2026-04-11 |
 | 9. State Machine + Conversation Continuity | 2/3 | In Progress|  |
-| 10. Step Tracking + Response Quality | 0/? | Not started | - |
+| 10. Step Tracking + Response Quality | 0/4 | Not started | - |
 | 11. Action-First UI | 0/? | Not started | - |
