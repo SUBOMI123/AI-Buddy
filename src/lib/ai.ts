@@ -99,7 +99,24 @@ export async function streamGuidance(opts: StreamGuidanceOptions): Promise<void>
     return;
   }
 
-  if (!response.ok || !response.body) {
+  if (!response.ok) {
+    // Attempt to read error body for richer diagnostics
+    let detail = "";
+    try {
+      const body = await response.json() as { error?: string };
+      detail = body.error ? ` (${body.error})` : "";
+    } catch { /* ignore parse failure */ }
+
+    if (response.status === 429) {
+      onError(`Rate limit reached -- please wait a moment and try again.${detail}`);
+    } else if (response.status === 401 || response.status === 403) {
+      onError(`Authentication error -- check your app token.${detail}`);
+    } else {
+      onError(`AI service error (${response.status})${detail} -- try again.`);
+    }
+    return;
+  }
+  if (!response.body) {
     onError("Couldn't reach AI -- check your connection.");
     return;
   }
