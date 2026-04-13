@@ -5,6 +5,7 @@ import { SettingsScreen } from "./SettingsScreen";
 import { TextInput } from "./TextInput";
 import { NoPermissionState } from "./EmptyState";
 import { QuickActions } from "./QuickActions";
+import { TryAnotherWay } from "./TryAnotherWay";
 import { SessionFeed, type SessionExchange } from "./SessionFeed";
 import { LoadingDots } from "./LoadingDots";
 import { parseSteps, isClarifyingQuestion, type Step } from "../lib/parseSteps";
@@ -34,6 +35,7 @@ import {
   type RegionCoords,
 } from "../lib/tauri";
 import { streamGuidance } from "../lib/ai";
+import { buildTryAnotherPrompt } from "../lib/quickActionPresets";
 
 // D-08: "listening" added for PTT active state
 // Phase 4: "selecting" added for region selection in-progress state
@@ -440,6 +442,15 @@ export function SidebarShell() {
     }
   };
 
+  // Phase 11 ACTN-03: Re-run with a "different approach" modifier
+  // buildTryAnotherPrompt strips any prior suffix before appending — prevents compound prompts (Pitfall 2)
+  const handleTryAnotherWay = () => {
+    const base = lastIntent();
+    if (base) {
+      submitIntent(buildTryAnotherPrompt(base));
+    }
+  };
+
   // Phase 9 D-01, SESS-03: "New task" resets all session state explicitly
   const handleNewTask = () => {
     abortController?.abort();
@@ -799,6 +810,7 @@ export function SidebarShell() {
                 />
               )
             }
+            <TryAnotherWay onRetry={handleTryAnotherWay} />
           </Show>
         </Show>
 
