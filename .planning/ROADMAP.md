@@ -66,7 +66,7 @@ Plans:
 Plans:
 - [x] 09-01-PLAN.md — Extend streamGuidance with conversationHistory parameter (SESS-01 API layer)
 - [x] 09-02-PLAN.md — Create SessionFeed component: prior + active exchange renderer (SESS-02 UI layer)
-- [ ] 09-03-PLAN.md — Wire SidebarShell: sessionHistory signal, onOverlayShown fix, TaskHeaderStrip, handleNewTask (SESS-01/02/03, TASK-01)
+- [x] 09-03-PLAN.md — Wire SidebarShell: sessionHistory signal, onOverlayShown fix, TaskHeaderStrip, handleNewTask (SESS-01/02/03, TASK-01)
 **UI hint**: yes
 
 ### Phase 10: Step Tracking + Response Quality

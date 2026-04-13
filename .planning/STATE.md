@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: — Foundation + Core Loop + Voice + Learning
 status: executing
-stopped_at: Completed 09-02-PLAN.md
-last_updated: "2026-04-13T01:26:26.935Z"
+stopped_at: Completed 09-03-PLAN.md
+last_updated: "2026-04-13T02:05:15.543Z"
 last_activity: 2026-04-13
 progress:
   total_phases: 2
-  completed_phases: 1
+  completed_phases: 2
   total_plans: 5
-  completed_plans: 4
-  percent: 80
+  completed_plans: 5
+  percent: 100
 ---
 
 # Project State
@@ -26,7 +26,7 @@ See: .planning/PROJECT.md (updated 2026-04-11)
 ## Current Position
 
 Phase: 09 (state-machine-conversation-continuity) — EXECUTING
-Plan: 2 of 3
+Plan: 3 of 3
 Status: Ready to execute
 Last activity: 2026-04-13
 
@@ -65,6 +65,8 @@ New for v2.0 (from research):
 - [Phase 08]: getActiveApp() called fire-and-forget in onOverlayShown — never awaited to keep overlay open latency unaffected (T-08-02-03)
 - [Phase 09]: SessionFeed is a pure props-driven renderer — no createSignal inside; all reactive state lives in SidebarShell
 - [Phase 09]: ref exposed as a callback prop (el: HTMLDivElement) => void so SidebarShell controls auto-scroll trigger location
+- [Phase 09]: D-11: onOverlayShown conditionally resets only transient states — session history and lastIntent survive hide/show
+- [Phase 09]: D-10: sessionHistory is in-memory signal only, never serialized to localStorage or disk
 
 ### Quick Tasks Completed
 
@@ -85,6 +87,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-04-13T01:26:26.933Z
-Stopped at: Completed 09-02-PLAN.md
+Last session: 2026-04-13T02:05:08.631Z
+Stopped at: Completed 09-03-PLAN.md
 Resume file: None

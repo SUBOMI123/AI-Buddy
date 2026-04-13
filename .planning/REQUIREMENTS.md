@@ -7,7 +7,7 @@
 
 ### Task Anchoring
 
-- [ ] **TASK-01**: When guidance is generated, a task header displays at the top of the panel summarizing the current task (e.g., "Debugging terminal error") and persists across follow-ups until session resets
+- [x] **TASK-01**: When guidance is generated, a task header displays at the top of the panel summarizing the current task (e.g., "Debugging terminal error") and persists across follow-ups until session resets
 
 ### Action-First UI
 
@@ -24,9 +24,9 @@
 
 ### Session
 
-- [ ] **SESS-01**: Follow-up queries are resolved using structured task context (current intent + last guidance steps + selected region) — not full conversation history
+- [x] **SESS-01**: Follow-up queries are resolved using structured task context (current intent + last guidance steps + selected region) — not full conversation history
 - [x] **SESS-02**: Previous guidance exchanges in the current session are scrollable above the current response — session history visible in-overlay
-- [ ] **SESS-03**: Session context resets when user submits a new unrelated intent — old task context does not bleed into a new task
+- [x] **SESS-03**: Session context resets when user submits a new unrelated intent — old task context does not bleed into a new task
 
 ### Step Tracking
 
@@ -82,7 +82,7 @@
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| TASK-01 | Phase 9 | Pending |
+| TASK-01 | Phase 9 | Complete |
 | ACTN-01 | Phase 11 | Pending |
 | ACTN-02 | Phase 11 | Pending |
 | ACTN-03 | Phase 11 | Pending |
@@ -90,9 +90,9 @@
 | RESP-01 | Phase 10 | Pending |
 | RESP-02 | Phase 10 | Pending |
 | RESP-03 | Phase 10 | Pending |
-| SESS-01 | Phase 9 | Pending |
+| SESS-01 | Phase 9 | Complete |
 | SESS-02 | Phase 9 | Complete |
-| SESS-03 | Phase 9 | Pending |
+| SESS-03 | Phase 9 | Complete |
 | STEP-01 | Phase 10 | Pending |
 | STEP-02 | Phase 10 | Pending |
 | STEP-03 | Phase 10 | Pending |
