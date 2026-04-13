@@ -638,10 +638,33 @@ export function SidebarShell() {
         <Show when={!needsPermission() && (sessionHistory().length > 0 || contentState() === "streaming" || contentState() === "loading" || contentState() === "done")}>
           <SessionFeed
             sessionHistory={sessionHistory()}
-            streamingText={streamingText()}
+            streamingText={contentState() === "streaming" ? streamingText() : ""}
             ttsEnabled={ttsEnabled()}
             ref={(el) => { sessionFeedRef = el; }}
           />
+          {/* Phase 10 D-06: StepChecklist or RawGuidanceText — shown after streaming completes */}
+          {/* D-06a: RawGuidanceText is the fallback when parseSteps returns [] */}
+          <Show when={contentState() === "done"}>
+            {steps().length > 0
+              ? (
+                <StepChecklist
+                  steps={steps()}
+                  onToggle={(index) => {
+                    setSteps((prev) =>
+                      prev.map((step, i) =>
+                        i === index ? { ...step, completed: !step.completed } : step
+                      )
+                    );
+                  }}
+                />
+              )
+              : (
+                <RawGuidanceText
+                  text={currentExchange()?.guidance ?? ""}
+                />
+              )
+            }
+          </Show>
         </Show>
 
         {/* Error state (D-11) */}
