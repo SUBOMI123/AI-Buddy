@@ -84,6 +84,7 @@ New for v2.0 (from research):
 | 260412-x4i | Fix Phase 10 UAT gaps: inline backtick steps (GAP-01), sidebar scroll (GAP-02), clarifying question prose (GAP-03) | 2026-04-12 |
 | 260413-09m | Fix copy buttons for inline backtick commands and make session history collapsible by default | 2026-04-13 |
 | 260413-0ih | Add Copied! feedback to copy button in StepChecklist — brief visual confirmation after clipboard write | 2026-04-13 |
+| 260413-16l | Fix UAT issues: add step numbers to checklist and make current-step highlight follow tap | 2026-04-13 |
 
 ### Pending Todos
 
