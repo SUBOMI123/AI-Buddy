@@ -1,4 +1,4 @@
-import { For, Show } from "solid-js";
+import { For, Show, createSignal } from "solid-js";
 import { Check, Square, Clipboard } from "lucide-solid";
 import type { Step } from "../lib/parseSteps";
 
@@ -50,6 +50,7 @@ function extractInlineCommand(label: string): string | null {
 export function StepChecklist(props: StepChecklistProps) {
   // D-03: current step = first item where completed === false (derived, not stored)
   const currentStepIndex = () => props.steps.findIndex((s) => !s.completed);
+  const [copiedIndex, setCopiedIndex] = createSignal<number | null>(null);
 
   return (
     // D-10: container aria attrs
@@ -133,6 +134,8 @@ export function StepChecklist(props: StepChecklistProps) {
                   onClick={(e) => {
                     e.stopPropagation(); // D-04: prevent triggering onToggle on parent
                     copyToClipboard(inlineCmd() ?? step.label);
+                    setCopiedIndex(index());
+                    setTimeout(() => setCopiedIndex(null), 1500);
                   }}
                   aria-label="Copy command"
                   style={{
@@ -153,11 +156,27 @@ export function StepChecklist(props: StepChecklistProps) {
                       "var(--color-text-primary)";
                   }}
                   onMouseLeave={(e) => {
-                    (e.currentTarget as HTMLButtonElement).style.color =
-                      "var(--color-text-secondary)";
+                    if (copiedIndex() !== index()) {
+                      (e.currentTarget as HTMLButtonElement).style.color =
+                        "var(--color-text-secondary)";
+                    }
                   }}
                 >
-                  <Clipboard size={14} />
+                  <Show
+                    when={copiedIndex() === index()}
+                    fallback={<Clipboard size={14} />}
+                  >
+                    <span
+                      style={{
+                        "font-size": "11px",
+                        "font-weight": "600",
+                        color: "var(--color-accent)",
+                        "white-space": "nowrap",
+                      }}
+                    >
+                      Copied!
+                    </span>
+                  </Show>
                 </button>
               </Show>
             </button>
