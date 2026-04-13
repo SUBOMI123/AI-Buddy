@@ -85,6 +85,7 @@ New for v2.0 (from research):
 | 260413-09m | Fix copy buttons for inline backtick commands and make session history collapsible by default | 2026-04-13 |
 | 260413-0ih | Add Copied! feedback to copy button in StepChecklist — brief visual confirmation after clipboard write | 2026-04-13 |
 | 260413-16l | Fix UAT issues: add step numbers to checklist and make current-step highlight follow tap | 2026-04-13 |
+| 260413-1kk | Update SYSTEM_PROMPT to command-first format: Verb: `command` with no trailing prose, no-navigation-assumption rule | 2026-04-13 |
 
 ### Pending Todos
 
