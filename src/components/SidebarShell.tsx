@@ -1,4 +1,4 @@
-import { createSignal, onMount, onCleanup, Show } from "solid-js";
+import { createSignal, onMount, onCleanup, Show, For } from "solid-js";
 import { X, Settings } from "lucide-solid";
 import { DragHandle } from "./DragHandle";
 import { SettingsScreen } from "./SettingsScreen";
@@ -75,6 +75,8 @@ export function SidebarShell() {
 
   // Phase 9: SESS-01, SESS-02 — session exchange history (D-10: in-memory only)
   const [sessionHistory, setSessionHistory] = createSignal<SessionExchange[]>([]);
+  // 260413-09m: per-item expand state for collapsible history rows (collapsed by default)
+  const [expandedHistoryItems, setExpandedHistoryItems] = createSignal<Set<number>>(new Set<number>());
 
   // Phase 10 D-05: currentExchange separates active exchange from sessionHistory
   // — avoids duplicate rendering when StepChecklist is shown below SessionFeed
@@ -262,6 +264,7 @@ export function SidebarShell() {
         const updated = [...h, prev];
         return updated.length > 3 ? updated.slice(updated.length - 3) : updated;
       });
+      setExpandedHistoryItems(new Set<number>()); // 260413-09m: reset collapse state on new submission
       setCurrentExchange(null);
     }
     setSteps([]);
@@ -433,6 +436,7 @@ export function SidebarShell() {
     abortController?.abort();
     abortController = null;
     setSessionHistory([]);
+    setExpandedHistoryItems(new Set<number>()); // 260413-09m: reset collapse state on new task
     setCurrentExchange(null);
     setSteps([]);
     setLastIntent("");
@@ -637,8 +641,71 @@ export function SidebarShell() {
         {/* Phase 9 SESS-02: Session feed — visible whenever session has content or is active */}
         {/* WR-02: include "done" so feed remains visible after stream completes */}
         <Show when={!needsPermission() && (sessionHistory().length > 0 || contentState() === "streaming" || contentState() === "loading" || contentState() === "done")}>
+          {/* 260413-09m: Collapsible history rows — rendered above the live SessionFeed */}
+          <For each={sessionHistory()}>
+            {(exchange, index) => {
+              const isExpanded = () => expandedHistoryItems().has(index());
+              const toggleExpanded = () => {
+                setExpandedHistoryItems((prev) => {
+                  const next = new Set(prev);
+                  if (next.has(index())) next.delete(index());
+                  else next.add(index());
+                  return next;
+                });
+              };
+              const summary = exchange.intent.length > 40
+                ? exchange.intent.slice(0, 40) + "\u2026"
+                : exchange.intent;
+              return (
+                <div style={{ "border-bottom": "1px solid var(--color-border)" }}>
+                  <button
+                    onClick={toggleExpanded}
+                    aria-expanded={isExpanded()}
+                    style={{
+                      width: "100%",
+                      display: "flex",
+                      "align-items": "center",
+                      "justify-content": "space-between",
+                      background: "transparent",
+                      border: "none",
+                      padding: "var(--space-sm) 0",
+                      cursor: "pointer",
+                      color: "var(--color-text-secondary)",
+                      "font-size": "var(--font-size-label)",
+                      "text-align": "left",
+                      gap: "var(--space-xs)",
+                    }}
+                  >
+                    <span style={{
+                      overflow: "hidden",
+                      "text-overflow": "ellipsis",
+                      "white-space": "nowrap",
+                      flex: "1",
+                    }}>
+                      {summary}
+                    </span>
+                    <span style={{ "flex-shrink": "0", "font-size": "10px" }}>
+                      {isExpanded() ? "\u25BC" : "\u25B6"}
+                    </span>
+                  </button>
+                  <Show when={isExpanded()}>
+                    <div style={{
+                      "font-size": "var(--font-size-label)",
+                      "line-height": "var(--line-height-body)",
+                      color: "var(--color-text-secondary)",
+                      padding: "0 0 var(--space-sm) 0",
+                      "white-space": "pre-wrap",
+                      "word-break": "break-word",
+                    }}>
+                      {exchange.guidance}
+                    </div>
+                  </Show>
+                </div>
+              );
+            }}
+          </For>
           <SessionFeed
-            sessionHistory={sessionHistory()}
+            sessionHistory={[]}
             streamingText={contentState() === "streaming" ? streamingText() : ""}
             ttsEnabled={ttsEnabled()}
           />
