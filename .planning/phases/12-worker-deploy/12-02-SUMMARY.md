@@ -23,9 +23,9 @@ decisions:
   - "APP_HMAC_SECRET must match value set in src-tauri/.cargo/config.toml in Plan 03"
   - "Workers dev subdomain enabled by default (wrangler warning accepted — not overridden)"
 metrics:
-  duration: "~10 minutes"
+  duration: "~15 minutes"
   completed: "2026-04-13"
-  tasks_completed: 3
+  tasks_completed: 4
   files_changed: 1
 requirements: [INFRA-03, INFRA-04]
 ---
@@ -44,6 +44,9 @@ KV namespace `RATE_LIMIT` created via `npx wrangler kv namespace create RATE_LIM
 
 ### Task 3: Deploy Worker to Production
 `npx wrangler deploy` succeeded. Worker uploaded at 71.98 KiB, deployed in ~3 seconds. Health endpoint verified returning `{"status":"ok","version":"1.0.0"}`. All 4 protected routes confirm 401 on unauthenticated requests.
+
+### Task 4: Verify Production Routes
+Human-verify checkpoint cleared by user. Confirmed: `/health` returns HTTP 200 with `{"status":"ok","version":"1.0.0"}`. `/chat`, `/stt`, and `/tts` all return HTTP 401 (not 404), confirming routes are registered and auth middleware is active. Worker is fully operational in production.
 
 ## Production Values for Plan 03
 
