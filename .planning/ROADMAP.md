@@ -59,7 +59,11 @@
   1. A request to the production Worker URL for `/chat`, `/stt`, and `/tts` returns a valid response (not a 404 or placeholder)
   2. The KV namespace ID in wrangler.toml is a real provisioned namespace, not the PRODUCTION REQUIRED placeholder
   3. Making more than 20 guidance requests from a single user identifier in one day causes the Worker to return a structured quota-exceeded response, not an error or a pass-through
-**Plans**: TBD
+**Plans**: 3 plans
+Plans:
+- [ ] 12-01-PLAN.md — Fix stale tests + add checkQuota() enforcement in /chat (Worker code only)
+- [ ] 12-02-PLAN.md — Provision KV namespace, deploy Worker to production, set secrets
+- [ ] 12-03-PLAN.md — Fix memory.rs runtime env var, wire production URL into Rust build config, smoke test
 
 ### Phase 13: Quota & Monetization
 **Goal**: Free tier users see their usage limits enforced and displayed, and paid subscribers can bypass all limits via Stripe
@@ -117,7 +121,7 @@
 | 9. State Machine + Conversation Continuity | v2.0 | 3/3 | Complete | 2026-04-13 |
 | 10. Step Tracking + Response Quality | v2.0 | 4/4 | Complete | 2026-04-13 |
 | 11. Action-First UI | v2.0 | 3/3 | Complete | 2026-04-13 |
-| 12. Worker Deploy | v3.0 | 0/? | Not started | — |
+| 12. Worker Deploy | v3.0 | 0/3 | Not started | — |
 | 13. Quota & Monetization | v3.0 | 0/? | Not started | — |
 | 14. Code Signing | v3.0 | 0/? | Not started | — |
 | 15. CI Pipeline & Auto-Updater | v3.0 | 0/? | Not started | — |
