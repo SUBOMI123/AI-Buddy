@@ -22,8 +22,7 @@ Free tier users see their daily limits enforced in the Worker and displayed in t
 **Quota-exceeded state:** When the hard limit is hit, the error response (`quota_exceeded`) replaces the normal guidance response. The input is not disabled — user can still type, but submitting shows the error again. "Upgrade" button is visible in the error state.
 
 **What this means for components:**
-- `SidebarShell.tsx` — add quota badge to header area
-- `App.tsx` / `SessionFeed.tsx` — handle `quota_exceeded` error distinctly from generic errors
+- `SidebarShell.tsx` — add quota badge to header area; handle `quota_exceeded` error distinctly from generic errors (note: `contentState` and `errorMessage` signals both live in `SidebarShell.tsx`, not `App.tsx`)
 - New `QuotaBanner.tsx` (or inline in `SidebarShell`) — soft-limit warning with Upgrade CTA
 - `ai.ts` — parse `X-Quota-Remaining` header from Worker responses, surface to UI
 
@@ -103,8 +102,7 @@ QUOT-02's "5 min/day" becomes "10 STT sessions/day" in implementation — the Wo
 
 **In Phase 13 (App side):**
 - `ai.ts` — parse quota headers from Worker responses, emit quota state to UI
-- `SidebarShell.tsx` — quota badge in header
-- `App.tsx` — handle `quota_exceeded` distinctly, show Upgrade CTA in error state
+- `SidebarShell.tsx` — quota badge in header, handle `quota_exceeded` distinctly, show Upgrade CTA in error state
 - `QuotaBanner.tsx` — soft-limit warning component (≤2 remaining)
 - Upgrade flow: call `/create-checkout`, open URL in system browser
 - Post-payment: `/refresh-subscription` call, update paid state in UI
