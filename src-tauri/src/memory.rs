@@ -127,7 +127,7 @@ fn record_interaction_inner(
 /// IMPORTANT: Must be called BEFORE acquiring the MemoryDb Mutex (Pitfall 1).
 async fn classify_intent(app: &AppHandle, raw_intent: &str) -> String {
     let worker_url =
-        std::env::var("WORKER_URL").unwrap_or_else(|_| "http://localhost:8787".to_string());
+        option_env!("WORKER_URL").unwrap_or("http://localhost:8787").to_string();
 
     // Build signed token for auth header — re-use cmd_get_token which signs the installation ID
     let token = crate::preferences::cmd_get_token(app.clone());
