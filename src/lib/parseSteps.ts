@@ -8,22 +8,45 @@ export interface Step {
 }
 
 /**
- * Parse a completed guidance text into Step[].
- *
- * Algorithm (D-02):
- * 1. Compliance check: if text.trimStart() does not start with "1.", return []
- *    — caller falls back to RawGuidanceText (D-06a)
- * 2. Split text by "\n", filter empty/whitespace-only lines
- * 3. For each line, match /^\d+\.\s+(.+)$/ — extract capture group as label
- * 4. Non-matching lines (code fences, blank lines) are skipped
- * 5. If result array is empty after parsing, return [] (triggers same fallback)
+ * 260413-1x7: Result type returned by parseSteps.
+ * title is the extracted "Task: ..." phrase (empty string when absent).
  */
-export function parseSteps(text: string): Step[] {
-  // Compliance check first (D-02)
-  if (!text.trimStart().startsWith("1. ")) return [];
+export interface ParseResult {
+  steps: Step[];
+  title: string;
+}
+
+/**
+ * Parse a completed guidance text into { steps, title }.
+ *
+ * Algorithm (D-02 + 260413-1x7):
+ * 1. Extract optional "Task: ..." line at the start. If present, capture phrase as title
+ *    and remove that line before further processing.
+ * 2. Compliance check: if remaining text.trimStart() does not start with "1.", return { steps: [], title }
+ *    — caller falls back to RawGuidanceText (D-06a)
+ * 3. Split text by "\n", filter empty/whitespace-only lines
+ * 4. For each line, match /^\d+\.\s+(.+)$/ — extract capture group as label
+ * 5. Non-matching lines (code fences, blank lines) are skipped
+ * 6. If result array is empty after parsing, return { steps: [], title } (triggers same fallback)
+ */
+export function parseSteps(text: string): ParseResult {
+  let title = "";
+  let remaining = text;
+
+  // 260413-1x7: Extract "Task: ..." line if it appears at the very start of the response
+  const taskLineMatch = remaining.trimStart().match(/^Task:\s+(.+?)(?:\n|$)/);
+  if (taskLineMatch) {
+    title = taskLineMatch[1].trim();
+    // Remove the Task: line from remaining text (keep everything after the first newline)
+    const newlineIdx = remaining.indexOf("\n");
+    remaining = newlineIdx !== -1 ? remaining.slice(newlineIdx + 1) : "";
+  }
+
+  // Compliance check (D-02) — on remaining text after stripping Task: line
+  if (!remaining.trimStart().startsWith("1. ")) return { steps: [], title };
 
   const steps: Step[] = [];
-  const lines = text.split("\n").filter((l) => l.trim().length > 0);
+  const lines = remaining.split("\n").filter((l) => l.trim().length > 0);
 
   for (const line of lines) {
     const match = line.match(/^\d+\.\s+(.+)$/);
@@ -33,8 +56,8 @@ export function parseSteps(text: string): Step[] {
     // Non-matching lines (code fences, blank lines filtered above) are skipped
   }
 
-  // If empty after parse, return [] — triggers RawGuidanceText fallback (D-02)
-  return steps;
+  // If empty after parse, return { steps: [], title } — triggers RawGuidanceText fallback (D-02)
+  return { steps, title };
 }
 
 /**
