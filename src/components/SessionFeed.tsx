@@ -30,8 +30,6 @@ export function SessionFeed(props: SessionFeedProps) {
       ref={props.ref}
       aria-label="Conversation history"
       style={{
-        flex: "1",
-        "overflow-y": "auto",
         display: "flex",
         "flex-direction": "column",
         gap: "var(--space-sm)",

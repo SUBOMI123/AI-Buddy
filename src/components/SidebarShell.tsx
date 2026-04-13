@@ -6,7 +6,7 @@ import { TextInput } from "./TextInput";
 import { EmptyState, NoPermissionState } from "./EmptyState";
 import { SessionFeed, type SessionExchange } from "./SessionFeed";
 import { LoadingDots } from "./LoadingDots";
-import { parseSteps, type Step } from "../lib/parseSteps";
+import { parseSteps, isClarifyingQuestion, type Step } from "../lib/parseSteps";
 import { StepChecklist } from "./StepChecklist";
 import { RawGuidanceText } from "./RawGuidanceText";
 import { PermissionDialog } from "./PermissionDialog";
@@ -91,7 +91,7 @@ export function SidebarShell() {
   let unlistenRegionSelected: (() => void) | undefined;
   let unlistenRegionCancelled: (() => void) | undefined;
   let abortController: AbortController | null = null;
-  let sessionFeedRef: HTMLDivElement | undefined;
+  let contentAreaRef: HTMLDivElement | undefined;
   // WR-01: generation counter guards against double-submit races.
   // Each submitIntent call captures its own generation; stale callbacks are discarded.
   let submitGen = 0;
@@ -362,8 +362,8 @@ export function SidebarShell() {
         if (contentState() === "loading") {
           setContentState("streaming");
           // Phase 9 D-05: auto-scroll to bottom when first token arrives
-          if (sessionFeedRef) {
-            sessionFeedRef.scrollTop = sessionFeedRef.scrollHeight;
+          if (contentAreaRef) {
+            contentAreaRef.scrollTop = contentAreaRef.scrollHeight;
           }
         }
         setStreamingText(accumulatedText);     // signal for UI display
@@ -550,6 +550,7 @@ export function SidebarShell() {
       </Show>
       <div
         class="sidebar-content"
+        ref={(el) => { contentAreaRef = el; }}
         style={{
           flex: "1",
           "overflow-y": "auto",
@@ -640,12 +641,11 @@ export function SidebarShell() {
             sessionHistory={sessionHistory()}
             streamingText={contentState() === "streaming" ? streamingText() : ""}
             ttsEnabled={ttsEnabled()}
-            ref={(el) => { sessionFeedRef = el; }}
           />
           {/* Phase 10 D-06: StepChecklist or RawGuidanceText — shown after streaming completes */}
           {/* D-06a: RawGuidanceText is the fallback when parseSteps returns [] */}
           <Show when={contentState() === "done"}>
-            {steps().length > 0
+            {steps().length > 0 && !isClarifyingQuestion(steps())
               ? (
                 <StepChecklist
                   steps={steps()}
