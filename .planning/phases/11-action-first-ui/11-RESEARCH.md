@@ -411,17 +411,15 @@ All three items above are low-risk assumptions with clear fallbacks.
 
 ---
 
-## Open Questions
+## Open Questions (RESOLVED)
 
 1. **Should EmptyState.tsx be deleted or kept?**
    - What we know: `EmptyState` (the named export) is only used in one place in `SidebarShell`. `NoPermissionState` (the other named export in the same file) is still used.
-   - What's unclear: Whether to keep the file and leave `EmptyState` export unused, or delete the export.
-   - Recommendation: Keep `EmptyState.tsx` unchanged. Remove the `import { EmptyState, NoPermissionState }` from SidebarShell and re-import only `NoPermissionState`. Simpler than deleting lines inside the file.
+   - RESOLVED: Keep `EmptyState.tsx` unchanged. Remove only the `EmptyState` named import from SidebarShell and re-import only `NoPermissionState`. Simpler than deleting lines inside the file.
 
 2. **Does "Try another way" show when the guidance was a clarifying question?**
    - What we know: `isClarifyingQuestion(steps())` is checked in the done state. When true, `RawGuidanceText` renders instead of `StepChecklist`.
-   - What's unclear: Whether "Try another way" makes sense after a clarifying question (the user hasn't answered it yet).
-   - Recommendation: Show `TryAnotherWay` regardless — it's inside `Show when={contentState() === "done"}` which already covers both cases. The prompt suffix "suggest a meaningfully different approach" will prompt Claude to ask differently or give steps instead. Acceptable UX.
+   - RESOLVED: Show `TryAnotherWay` regardless — it's inside `Show when={contentState() === "done"}` which already covers both cases. The prompt suffix "suggest a meaningfully different approach" will prompt Claude to ask differently or give steps instead. Acceptable UX.
 
 ---
 
