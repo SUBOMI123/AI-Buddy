@@ -18,17 +18,29 @@ export function QuickActions(props: QuickActionsProps) {
 
   return (
     <div style={{ display: "flex", "flex-direction": "column" }}>
-      {/* Context label / region indicator */}
-      <div
-        style={{
-          display: "flex",
-          "align-items": "center",
-          gap: "var(--space-xs)",
-          padding: "0 var(--space-md)",
-          "margin-bottom": "var(--space-xs)",
-        }}
-      >
-        {props.hasRegion && (
+      {/* Context label — always shown */}
+      <div style={{ padding: "0 var(--space-md)", "margin-bottom": "var(--space-xs)" }}>
+        <span
+          style={{
+            "font-size": "var(--font-size-label)",
+            color: "var(--color-text-secondary)",
+          }}
+        >
+          What should I do with this?
+        </span>
+      </div>
+
+      {/* Selection active indicator — only when region is selected */}
+      {props.hasRegion && (
+        <div
+          style={{
+            display: "flex",
+            "align-items": "center",
+            gap: "var(--space-xs)",
+            padding: "0 var(--space-md)",
+            "margin-bottom": "var(--space-xs)",
+          }}
+        >
           <span
             style={{
               width: "6px",
@@ -38,16 +50,16 @@ export function QuickActions(props: QuickActionsProps) {
               "flex-shrink": "0",
             }}
           />
-        )}
-        <span
-          style={{
-            "font-size": "var(--font-size-label)",
-            color: "var(--color-text-secondary)",
-          }}
-        >
-          {props.hasRegion ? "What should I do with this?" : "What do you want to do?"}
-        </span>
-      </div>
+          <span
+            style={{
+              "font-size": "var(--font-size-label)",
+              color: "var(--color-accent)",
+            }}
+          >
+            Selection active
+          </span>
+        </div>
+      )}
 
       {/* Button grid */}
       <div
