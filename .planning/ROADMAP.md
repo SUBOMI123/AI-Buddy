@@ -62,7 +62,11 @@ Plans:
   2. Hiding and re-showing the overlay does not wipe the current session — prior steps and context are still present
   3. Starting a clearly new task resets session context so old task steps do not bleed through
   4. A task header appears at the top of the guidance panel summarizing the current task and persists through follow-ups
-**Plans**: TBD
+**Plans**: 3 plans
+Plans:
+- [ ] 09-01-PLAN.md — Extend streamGuidance with conversationHistory parameter (SESS-01 API layer)
+- [ ] 09-02-PLAN.md — Create SessionFeed component: prior + active exchange renderer (SESS-02 UI layer)
+- [ ] 09-03-PLAN.md — Wire SidebarShell: sessionHistory signal, onOverlayShown fix, TaskHeaderStrip, handleNewTask (SESS-01/02/03, TASK-01)
 **UI hint**: yes
 
 ### Phase 10: Step Tracking + Response Quality
@@ -95,6 +99,6 @@ Plans:
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 8. Backend Foundations | 2/2 | Complete   | 2026-04-11 |
-| 9. State Machine + Conversation Continuity | 0/? | Not started | - |
+| 9. State Machine + Conversation Continuity | 0/3 | Not started | - |
 | 10. Step Tracking + Response Quality | 0/? | Not started | - |
 | 11. Action-First UI | 0/? | Not started | - |
