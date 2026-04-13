@@ -1,5 +1,6 @@
 import { Hono } from 'hono';
 import { cors } from 'hono/cors';
+import Stripe from 'stripe';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -10,6 +11,9 @@ type Bindings = {
   ASSEMBLYAI_API_KEY: string;
   ELEVENLABS_API_KEY: string;
   APP_HMAC_SECRET: string;
+  STRIPE_SECRET_KEY: string;
+  STRIPE_WEBHOOK_SECRET: string;
+  STRIPE_PRICE_ID: string;
   RATE_LIMIT: KVNamespace;
 };
 
@@ -48,9 +52,9 @@ async function checkRateLimit(
 }
 
 // ---------------------------------------------------------------------------
-// Quota enforcement (INFRA-05) — 20 guidance queries / user / 24h rolling window
+// Quota enforcement (QUOT-01, QUOT-02, QUOT-03) — rolling 24h window per user
 //
-// KV key: quota:chat:${token}  (separate from rate limit keys rate:${token})
+// KV key: quota:${service}:${token}
 // TTL: set ONLY on first write (expirationTtl: 86400) to preserve rolling window start.
 // Subsequent increments omit expirationTtl — KV preserves the original expiry.
 // TOCTOU caveat: same as checkRateLimit — acceptable for beta traffic.
@@ -59,13 +63,15 @@ async function checkRateLimit(
 async function checkQuota(
   kv: KVNamespace,
   token: string,
-): Promise<{ allowed: boolean; used: number; reset_in_seconds: number }> {
-  const key = `quota:chat:${token}`;
+  service: 'chat' | 'stt' | 'tts',
+  limit: number,
+): Promise<{ allowed: boolean; used: number; remaining: number; reset_in_seconds: number }> {
+  const key = `quota:${service}:${token}`;
   const raw = await kv.get(key);
   const current = raw ? parseInt(raw, 10) : 0;
 
-  if (current >= 20) {
-    return { allowed: false, used: current, reset_in_seconds: 86400 };
+  if (current >= limit) {
+    return { allowed: false, used: current, remaining: 0, reset_in_seconds: 86400 };
   }
 
   const newCount = current + 1;
@@ -77,7 +83,17 @@ async function checkQuota(
     await kv.put(key, String(newCount));
   }
 
-  return { allowed: true, used: newCount, reset_in_seconds: 0 };
+  return { allowed: true, used: newCount, remaining: limit - newCount, reset_in_seconds: 0 };
+}
+
+// ---------------------------------------------------------------------------
+// Subscription bypass helper (QUOT-06)
+// Reads subscription:${uuid} from KV. Returns true if value is 'active'.
+// ---------------------------------------------------------------------------
+
+async function isSubscribed(kv: KVNamespace, uuid: string): Promise<boolean> {
+  const status = await kv.get(`subscription:${uuid}`);
+  return status === 'active';
 }
 
 // ---------------------------------------------------------------------------
@@ -95,12 +111,12 @@ const app = new Hono<App>();
 app.use('*', cors({ origin: ['http://localhost:1420', 'tauri://localhost'] }));
 
 // ---------------------------------------------------------------------------
-// Auth + rate-limit middleware (applied to all routes except /health)
+// Auth + rate-limit middleware (applied to all routes except /health, /stripe-webhook, /payment-success)
 // ---------------------------------------------------------------------------
 
 app.use('*', async (c, next) => {
-  // Skip auth for health endpoint
-  if (c.req.path === '/health') {
+  // Skip auth for health endpoint, stripe webhook (uses Stripe signature), and payment success page
+  if (['health', 'stripe-webhook', 'payment-success'].some((p) => c.req.path === `/${p}`)) {
     return next();
   }
 
@@ -188,17 +204,28 @@ app.post('/chat', async (c) => {
     return c.json({ error: 'messages array is required' }, 400);
   }
 
-  // Quota check — /chat only, 20 guidance queries/user/24h (INFRA-05, per D-1)
+  // Quota check — subscription bypass first, then 20 queries/user/24h (QUOT-01, QUOT-06)
+  let chatRemaining: number | undefined;
   if (c.env.RATE_LIMIT) {
     try {
       const tokenValue = c.get('tokenValue');
-      const { allowed, reset_in_seconds } = await checkQuota(c.env.RATE_LIMIT, tokenValue);
-      if (!allowed) {
-        return c.json(
-          { error: 'quota_exceeded', quota: 20, reset_in_seconds },
-          { status: 429 },
+      const subscribed = await isSubscribed(c.env.RATE_LIMIT, tokenValue);
+      if (!subscribed) {
+        const { allowed, remaining, reset_in_seconds } = await checkQuota(
+          c.env.RATE_LIMIT,
+          tokenValue,
+          'chat',
+          20,
         );
+        if (!allowed) {
+          return c.json(
+            { error: 'quota_exceeded', service: 'chat', quota: 20, reset_in_seconds },
+            { status: 429 },
+          );
+        }
+        chatRemaining = remaining;
       }
+      // Subscribed users: no quota limit, X-Quota-Remaining omitted
     } catch {
       // KV unavailable in local dev — fail open, quota not enforced
     }
@@ -221,14 +248,19 @@ app.post('/chat', async (c) => {
     }),
   });
 
-  // SSE passthrough
-  return new Response(response.body, {
-    status: response.status,
-    headers: {
-      'Content-Type': 'text/event-stream',
-      'Cache-Control': 'no-cache',
-    },
-  });
+  // SSE passthrough — inject X-Quota-Remaining into raw Response headers object
+  // NOTE: Do NOT use c.header() here — this raw new Response() bypasses Hono's
+  // header accumulator. Headers must be set directly in the headers literal.
+  const headers: Record<string, string> = {
+    'Content-Type': 'text/event-stream',
+    'Cache-Control': 'no-cache',
+  };
+  if (chatRemaining !== undefined) {
+    headers['X-Quota-Remaining'] = String(chatRemaining);
+    headers['X-Quota-Limit'] = '20';
+  }
+
+  return new Response(response.body, { status: response.status, headers });
 });
 
 // Task classification endpoint — classifies user intent into a canonical snake_case label (D-02)
@@ -295,6 +327,30 @@ app.post('/classify', async (c) => {
 // STT token endpoint — issues short-lived AssemblyAI streaming token (D-28)
 // Auth middleware applies globally — this route only reached by authenticated clients (T-03-04)
 app.post('/stt', async (c) => {
+  // Quota check — subscription bypass first, then 10 sessions/user/24h (QUOT-02, QUOT-06)
+  if (c.env.RATE_LIMIT) {
+    try {
+      const tokenValue = c.get('tokenValue');
+      const subscribed = await isSubscribed(c.env.RATE_LIMIT, tokenValue);
+      if (!subscribed) {
+        const { allowed, reset_in_seconds } = await checkQuota(
+          c.env.RATE_LIMIT,
+          tokenValue,
+          'stt',
+          10,
+        );
+        if (!allowed) {
+          return c.json(
+            { error: 'quota_exceeded', service: 'stt', quota: 10, reset_in_seconds },
+            { status: 429 },
+          );
+        }
+      }
+    } catch {
+      // KV unavailable — fail open
+    }
+  }
+
   const tokenUrl = 'https://streaming.assemblyai.com/v3/token?expires_in_seconds=300';
 
   let tokenResponse: Response;
@@ -343,6 +399,30 @@ app.post('/tts', async (c) => {
     return c.json({ error: 'text must be 2000 characters or fewer' }, 400);
   }
 
+  // Quota check — subscription bypass first, then 10 responses/user/24h (QUOT-03, QUOT-06)
+  if (c.env.RATE_LIMIT) {
+    try {
+      const tokenValue = c.get('tokenValue');
+      const subscribed = await isSubscribed(c.env.RATE_LIMIT, tokenValue);
+      if (!subscribed) {
+        const { allowed, reset_in_seconds } = await checkQuota(
+          c.env.RATE_LIMIT,
+          tokenValue,
+          'tts',
+          10,
+        );
+        if (!allowed) {
+          return c.json(
+            { error: 'quota_exceeded', service: 'tts', quota: 10, reset_in_seconds },
+            { status: 429 },
+          );
+        }
+      }
+    } catch {
+      // KV unavailable — fail open
+    }
+  }
+
   // ElevenLabs voice ID — use "Rachel" (natural, clear instructional voice)
   // voice_id: Xb7hH8MSUJpSbSDYk0k2 is ElevenLabs "Alice" — available on free tier
   const voiceId = body.voice_id ?? 'Xb7hH8MSUJpSbSDYk0k2';
@@ -386,6 +466,140 @@ app.post('/tts', async (c) => {
       'Transfer-Encoding': 'chunked',
     },
   });
+});
+
+// GET /quota — returns current usage counts for all three quota categories (QUOT-05)
+// Auth middleware applies — tokenValue extracted from verified x-app-token
+app.get('/quota', async (c) => {
+  if (!c.env.RATE_LIMIT) return c.json({ error: 'KV unavailable' }, 503);
+  const uuid = c.get('tokenValue');
+  const [chatRaw, sttRaw, ttsRaw, subRaw] = await Promise.all([
+    c.env.RATE_LIMIT.get(`quota:chat:${uuid}`),
+    c.env.RATE_LIMIT.get(`quota:stt:${uuid}`),
+    c.env.RATE_LIMIT.get(`quota:tts:${uuid}`),
+    c.env.RATE_LIMIT.get(`subscription:${uuid}`),
+  ]);
+  const subscribed = subRaw === 'active';
+  return c.json({
+    subscribed,
+    chat: { used: parseInt(chatRaw ?? '0', 10), limit: 20 },
+    stt: { used: parseInt(sttRaw ?? '0', 10), limit: 10 },
+    tts: { used: parseInt(ttsRaw ?? '0', 10), limit: 10 },
+  });
+});
+
+// POST /create-checkout — creates a Stripe Checkout Session for subscription upgrade (PAY-02)
+// Auth middleware applies — uuid extracted from verified x-app-token via c.get('tokenValue')
+app.post('/create-checkout', async (c) => {
+  let body: { uuid?: string };
+  try {
+    body = await c.req.json();
+  } catch {
+    return c.json({ error: 'Invalid JSON body' }, 400);
+  }
+  if (!body.uuid || typeof body.uuid !== 'string') {
+    return c.json({ error: 'uuid is required' }, 400);
+  }
+
+  const stripe = new Stripe(c.env.STRIPE_SECRET_KEY, {
+    httpClient: Stripe.createFetchHttpClient(),
+  });
+
+  try {
+    const session = await stripe.checkout.sessions.create({
+      mode: 'subscription',
+      line_items: [{ price: c.env.STRIPE_PRICE_ID, quantity: 1 }],
+      metadata: { installation_uuid: body.uuid },
+      subscription_data: { metadata: { installation_uuid: body.uuid } },
+      success_url: 'https://ai-buddy-proxy.subomi-bashorun.workers.dev/payment-success',
+      cancel_url: 'https://ai-buddy-proxy.subomi-bashorun.workers.dev/payment-success',
+    });
+    return c.json({ url: session.url });
+  } catch (err) {
+    console.error('Stripe checkout session creation failed:', err);
+    return c.json({ error: 'Stripe unavailable' }, 503);
+  }
+});
+
+// GET /payment-success — static success page shown after Stripe Checkout redirect (PAY-02)
+// No auth required — Stripe redirects user browser here after payment
+app.get('/payment-success', (c) => {
+  return c.html(
+    '<html><body style="font-family:sans-serif;text-align:center;padding:4rem"><h1>Payment complete</h1><p>Return to AI Buddy and click Refresh Status.</p></body></html>',
+  );
+});
+
+// POST /stripe-webhook — handles Stripe subscription lifecycle events (PAY-03)
+// Auth middleware is BYPASSED for this route (path skip in middleware above)
+// Security: Stripe-Signature header verified with constructEventAsync + SubtleCryptoProvider (T-13-01)
+app.post('/stripe-webhook', async (c) => {
+  const signature = c.req.header('stripe-signature');
+  if (!signature) return c.text('', 400);
+
+  const body = await c.req.text();
+
+  const stripe = new Stripe(c.env.STRIPE_SECRET_KEY, {
+    httpClient: Stripe.createFetchHttpClient(),
+  });
+
+  let event: Stripe.Event;
+  try {
+    event = await stripe.webhooks.constructEventAsync(
+      body,
+      signature,
+      c.env.STRIPE_WEBHOOK_SECRET,
+      undefined,
+      Stripe.createSubtleCryptoProvider(),
+    );
+  } catch {
+    return c.text('Webhook signature verification failed', 400);
+  }
+
+  if (event.type === 'checkout.session.completed') {
+    const session = event.data.object as Stripe.Checkout.Session;
+    const uuid = session.metadata?.installation_uuid;
+    if (uuid && c.env.RATE_LIMIT) {
+      await c.env.RATE_LIMIT.put(`subscription:${uuid}`, 'active');
+    }
+  }
+
+  if (event.type === 'customer.subscription.deleted') {
+    const sub = event.data.object as Stripe.Subscription;
+    const uuid = sub.metadata?.installation_uuid;
+    if (uuid && c.env.RATE_LIMIT) {
+      await c.env.RATE_LIMIT.put(`subscription:${uuid}`, 'cancelled');
+    }
+  }
+
+  return c.text('', 200);
+});
+
+// POST /refresh-subscription — polls Stripe to refresh subscription status in KV (PAY-05)
+// Auth middleware applies — uuid from verified token (T-13-07)
+app.post('/refresh-subscription', async (c) => {
+  const uuid = c.get('tokenValue');
+  const stripe = new Stripe(c.env.STRIPE_SECRET_KEY, {
+    httpClient: Stripe.createFetchHttpClient(),
+  });
+
+  let isActive = false;
+  try {
+    const results = await stripe.subscriptions.search({
+      query: `metadata['installation_uuid']:'${uuid}' AND status:'active'`,
+      limit: 1,
+    });
+    isActive = results.data.length > 0;
+  } catch (err) {
+    console.error('Stripe subscriptions.search failed:', err);
+    return c.json({ error: 'Stripe unavailable' }, 503);
+  }
+
+  const newStatus = isActive ? 'active' : 'cancelled';
+  if (c.env.RATE_LIMIT) {
+    await c.env.RATE_LIMIT.put(`subscription:${uuid}`, newStatus);
+  }
+
+  return c.json({ status: isActive ? 'active' : 'free' });
 });
 
 // ---------------------------------------------------------------------------

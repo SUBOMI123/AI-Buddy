@@ -11,12 +11,14 @@ type Json = Record<string, any>;
 
 function createMockKV(initialStore: Record<string, string> = {}): KVNamespace {
   const store: Record<string, string> = { ...initialStore };
-  return {
+  const putCalls: Array<{ key: string; value: string; opts?: unknown }> = [];
+  const kv = {
     get(key: string) {
       return Promise.resolve(store[key] ?? null);
     },
-    put(key: string, value: string, _opts?: unknown) {
+    put(key: string, value: string, opts?: unknown) {
       store[key] = value;
+      putCalls.push({ key, value, opts });
       return Promise.resolve();
     },
     delete(_key: string) {
@@ -28,7 +30,9 @@ function createMockKV(initialStore: Record<string, string> = {}): KVNamespace {
     getWithMetadata() {
       return Promise.resolve({ value: null, metadata: null, cacheStatus: null });
     },
-  } as unknown as KVNamespace;
+    _putCalls: putCalls,
+  } as unknown as KVNamespace & { _putCalls: Array<{ key: string; value: string; opts?: unknown }> };
+  return kv;
 }
 
 // ---------------------------------------------------------------------------
@@ -51,6 +55,9 @@ function createEnv(kvOverride?: KVNamespace) {
     ASSEMBLYAI_API_KEY: 'test-assemblyai-key',
     ELEVENLABS_API_KEY: 'test-elevenlabs-key',
     APP_HMAC_SECRET: 'test-hmac-secret',
+    STRIPE_SECRET_KEY: 'sk_test_fake',
+    STRIPE_WEBHOOK_SECRET: 'whsec_fake',
+    STRIPE_PRICE_ID: 'price_fake',
     RATE_LIMIT: kvOverride ?? createMockKV(),
   };
 }
@@ -166,6 +173,73 @@ describe('POST /chat', () => {
     assert.equal(body.quota, 20);
     assert.ok(typeof body.reset_in_seconds === 'number');
   });
+
+  it('X-Quota-Remaining header is absent when quota_exceeded (429 has no remaining header)', async () => {
+    const kv = createMockKV({ [`quota:chat:${TOKEN_UUID}`]: '20' });
+    const env = createEnv(kv);
+
+    const res = await req(
+      '/chat',
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-app-token': VALID_TOKEN,
+        },
+        body: JSON.stringify({ messages: [{ role: 'user', content: 'hello' }] }),
+      },
+      env,
+    );
+
+    assert.equal(res.status, 429);
+    // 429 response should not include X-Quota-Remaining
+    assert.equal(res.headers.get('X-Quota-Remaining'), null);
+  });
+});
+
+describe('POST /stt', () => {
+  it('returns 429 with quota_exceeded when STT sessions exhausted', async () => {
+    const kv = createMockKV({ [`quota:stt:${TOKEN_UUID}`]: '10' });
+    const env = createEnv(kv);
+
+    const res = await req(
+      '/stt',
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-app-token': VALID_TOKEN,
+        },
+      },
+      env,
+    );
+
+    assert.equal(res.status, 429);
+    const body = (await res.json()) as Json;
+    assert.equal(body.error, 'quota_exceeded');
+    assert.equal(body.service, 'stt');
+    assert.equal(body.quota, 10);
+  });
+
+  it('returns non-429 when STT sessions not exhausted (quota 5 < limit 10)', async () => {
+    const kv = createMockKV({ [`quota:stt:${TOKEN_UUID}`]: '5' });
+    const env = createEnv(kv);
+
+    const res = await req(
+      '/stt',
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-app-token': VALID_TOKEN,
+        },
+      },
+      env,
+    );
+
+    // Will be 502/503 since AssemblyAI is mocked — but NOT 429
+    assert.notEqual(res.status, 429);
+  });
 });
 
 describe('POST /tts', () => {
@@ -181,6 +255,150 @@ describe('POST /tts', () => {
     assert.equal(res.status, 400);
     const body = (await res.json()) as Json;
     assert.equal(body.error, 'text must be a non-empty string');
+  });
+
+  it('returns 429 with quota_exceeded when TTS limit hit', async () => {
+    const kv = createMockKV({ [`quota:tts:${TOKEN_UUID}`]: '10' });
+    const env = createEnv(kv);
+
+    const res = await req(
+      '/tts',
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-app-token': VALID_TOKEN,
+        },
+        body: JSON.stringify({ text: 'Hello world' }),
+      },
+      env,
+    );
+
+    assert.equal(res.status, 429);
+    const body = (await res.json()) as Json;
+    assert.equal(body.error, 'quota_exceeded');
+    assert.equal(body.service, 'tts');
+    assert.equal(body.quota, 10);
+  });
+});
+
+describe('Subscription bypass', () => {
+  it('/chat allows request when subscription:uuid = active even with quota:chat = 20', async () => {
+    const kv = createMockKV({
+      [`quota:chat:${TOKEN_UUID}`]: '20',
+      [`subscription:${TOKEN_UUID}`]: 'active',
+    });
+    const env = createEnv(kv);
+
+    const res = await req(
+      '/chat',
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-app-token': VALID_TOKEN,
+        },
+        body: JSON.stringify({ messages: [{ role: 'user', content: 'hello' }] }),
+      },
+      env,
+    );
+
+    // Should NOT be 429 — subscribed users bypass quota
+    // Will be 503/other since Anthropic is mocked — but not 429
+    assert.notEqual(res.status, 429);
+  });
+});
+
+describe('GET /quota', () => {
+  it('returns quota counts for all three services', async () => {
+    const kv = createMockKV({
+      [`quota:chat:${TOKEN_UUID}`]: '5',
+      [`quota:stt:${TOKEN_UUID}`]: '3',
+      [`quota:tts:${TOKEN_UUID}`]: '1',
+    });
+    const env = createEnv(kv);
+
+    const res = await req(
+      '/quota',
+      {
+        method: 'GET',
+        headers: { 'x-app-token': VALID_TOKEN },
+      },
+      env,
+    );
+
+    assert.equal(res.status, 200);
+    const body = (await res.json()) as Json;
+    assert.equal(body.chat.used, 5);
+    assert.equal(body.chat.limit, 20);
+    assert.equal(body.stt.used, 3);
+    assert.equal(body.stt.limit, 10);
+    assert.equal(body.tts.used, 1);
+    assert.equal(body.tts.limit, 10);
+  });
+
+  it('returns subscribed: true when subscription:uuid = active', async () => {
+    const kv = createMockKV({
+      [`subscription:${TOKEN_UUID}`]: 'active',
+    });
+    const env = createEnv(kv);
+
+    const res = await req(
+      '/quota',
+      {
+        method: 'GET',
+        headers: { 'x-app-token': VALID_TOKEN },
+      },
+      env,
+    );
+
+    assert.equal(res.status, 200);
+    const body = (await res.json()) as Json;
+    assert.equal(body.subscribed, true);
+  });
+});
+
+describe('checkQuota() rolling-window invariant', () => {
+  it('KV.put does NOT include expirationTtl when quota key already exists (rolling window must not reset)', async () => {
+    const kv = createMockKV({ [`quota:stt:${TOKEN_UUID}`]: '5' }) as KVNamespace & {
+      _putCalls: Array<{ key: string; value: string; opts?: unknown }>;
+    };
+    const env = createEnv(kv);
+
+    // Send a valid /stt request that is under the limit (5 < 10)
+    await req(
+      '/stt',
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-app-token': VALID_TOKEN,
+        },
+      },
+      env,
+    );
+
+    // Find any put calls for the stt quota key
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const sttPuts = (kv as any)._putCalls.filter(
+      (call: { key: string }) => call.key === `quota:stt:${TOKEN_UUID}`,
+    );
+
+    assert.ok(sttPuts.length > 0, 'Should have at least one KV.put for the quota:stt key');
+
+    // None of the increment puts should include expirationTtl
+    for (const put of sttPuts) {
+      const hasExpiry =
+        put.opts !== undefined &&
+        put.opts !== null &&
+        typeof put.opts === 'object' &&
+        'expirationTtl' in (put.opts as object);
+      assert.equal(
+        hasExpiry,
+        false,
+        `KV.put for quota:stt:${TOKEN_UUID} should NOT include expirationTtl when key already exists`,
+      );
+    }
   });
 });
 
@@ -234,5 +452,52 @@ describe('Rate limiting', () => {
     const remaining = res.headers.get('X-RateLimit-Remaining');
     assert.ok(remaining !== null, 'X-RateLimit-Remaining header should be set');
     assert.equal(remaining, '59'); // first request, 60 - 1 = 59
+  });
+});
+
+describe('POST /create-checkout', () => {
+  it('returns 401 without x-app-token', async () => {
+    const res = await req('/create-checkout', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ uuid: TOKEN_UUID }),
+    });
+    assert.equal(res.status, 401);
+  });
+
+  it('returns 400 when uuid is missing in body', async () => {
+    const res = await req('/create-checkout', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-app-token': VALID_TOKEN,
+      },
+      body: JSON.stringify({}),
+    });
+    assert.equal(res.status, 400);
+    const body = (await res.json()) as Json;
+    assert.ok(typeof body.error === 'string' && body.error.includes('uuid'));
+  });
+});
+
+describe('POST /stripe-webhook', () => {
+  it('returns 400 when Stripe-Signature header is missing', async () => {
+    // No Stripe-Signature header, no x-app-token — webhook bypasses app auth
+    const res = await req('/stripe-webhook', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ type: 'checkout.session.completed' }),
+    });
+    assert.equal(res.status, 400);
+  });
+});
+
+describe('POST /refresh-subscription', () => {
+  it('returns 401 without x-app-token', async () => {
+    const res = await req('/refresh-subscription', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+    });
+    assert.equal(res.status, 401);
   });
 });

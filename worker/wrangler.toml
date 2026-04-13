@@ -8,6 +8,12 @@ compatibility_date = "2024-09-23"
 #   npx wrangler secret put ASSEMBLYAI_API_KEY
 #   npx wrangler secret put ELEVENLABS_API_KEY
 #   npx wrangler secret put APP_HMAC_SECRET
+#   npx wrangler secret put STRIPE_SECRET_KEY
+#   npx wrangler secret put STRIPE_WEBHOOK_SECRET
+# Non-secret env var (price ID):
+# Add to wrangler.toml [vars] block:
+# [vars]
+# STRIPE_PRICE_ID = "price_XXXXXXXXXXXX"
 
 # KV namespace for per-token rate limiting (D-10).
 # For local dev, `wrangler dev` creates a local KV automatically — no ID needed.
