@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: — Foundation + Core Loop + Voice + Learning
 status: executing
-stopped_at: Completed quick/260412-x4i
-last_updated: "2026-04-13T05:29:49.626Z"
+stopped_at: Completed 11-W0-PLAN.md and 11-01-PLAN.md
+last_updated: "2026-04-13T20:06:57.939Z"
 last_activity: 2026-04-13
 progress:
-  total_phases: 3
+  total_phases: 4
   completed_phases: 3
-  total_plans: 9
-  completed_plans: 9
-  percent: 100
+  total_plans: 12
+  completed_plans: 11
+  percent: 92
 ---
 
 # Project State
@@ -21,13 +21,13 @@ progress:
 See: .planning/PROJECT.md (updated 2026-04-11)
 
 **Core value:** Users complete tasks in unfamiliar software without Googling or getting stuck
-**Current focus:** Phase 10 — step-tracking-response-quality
+**Current focus:** Phase 11 — action-first-ui
 
 ## Current Position
 
-Phase: 10
-Plan: Not started
-Status: Executing Phase 10
+Phase: 11 (action-first-ui) — EXECUTING
+Plan: 2 of 3
+Status: Ready to execute
 Last activity: 2026-04-13
 
 Progress: [░░░░░░░░░░] 0%
@@ -73,6 +73,8 @@ New for v2.0 (from research):
 - [Phase 10]: System prompt replaced with strict "start with 1. on line 1, no preamble" format
 - [Phase 10]: Prior session history stays flat muted text (no checklist on historical items)
 - [Phase quick]: isClarifyingQuestion heuristic: single step ending with '?' renders as RawGuidanceText — SYSTEM_PROMPT updated to use inline backticks not code blocks in numbered steps
+- [Phase 11-action-first-ui]: QuickActions replaces EmptyState in SidebarShell empty-state branch; Ask button focuses inputRef only (no AI trigger)
+- [Phase 11-action-first-ui]: QUICK_PRESETS record with Fix/Explain/Optimize D-03 strings; buildTryAnotherPrompt strips prior suffix before re-appending (anti-compound)
 
 ### Quick Tasks Completed
 
@@ -101,6 +103,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-04-13T04:55:10.438Z
-Stopped at: Completed quick/260412-x4i
+Last session: 2026-04-13T20:06:57.936Z
+Stopped at: Completed 11-W0-PLAN.md and 11-01-PLAN.md
 Resume file: None

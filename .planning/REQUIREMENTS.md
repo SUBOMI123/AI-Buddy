@@ -11,10 +11,10 @@
 
 ### Action-First UI
 
-- [ ] **ACTN-01**: When the overlay is open with no active query, user sees quick action buttons (Fix, Explain, Optimize, Ask) instead of a blank text prompt
-- [ ] **ACTN-02**: After making a screen region selection, quick action buttons appear pre-filled for that selection — no typing required to trigger guidance
-- [ ] **ACTN-03**: After receiving guidance, user can press "Try another way" to get a different approach without re-describing the task
-- [ ] **ACTN-04**: Fixed action buttons render instantly (<100ms); AI-suggested context-specific actions append asynchronously without blocking interaction
+- [x] **ACTN-01**: When the overlay is open with no active query, user sees quick action buttons (Fix, Explain, Optimize, Ask) instead of a blank text prompt
+- [x] **ACTN-02**: After making a screen region selection, quick action buttons appear pre-filled for that selection — no typing required to trigger guidance
+- [x] **ACTN-03**: After receiving guidance, user can press "Try another way" to get a different approach without re-describing the task
+- [x] **ACTN-04**: Fixed action buttons render instantly (<100ms); AI-suggested context-specific actions append asynchronously without blocking interaction
 
 ### Response Quality
 
@@ -83,10 +83,10 @@
 | Requirement | Phase | Status |
 |-------------|-------|--------|
 | TASK-01 | Phase 9 | Complete |
-| ACTN-01 | Phase 11 | Pending |
-| ACTN-02 | Phase 11 | Pending |
-| ACTN-03 | Phase 11 | Pending |
-| ACTN-04 | Phase 11 | Pending |
+| ACTN-01 | Phase 11 | Complete |
+| ACTN-02 | Phase 11 | Complete |
+| ACTN-03 | Phase 11 | Complete |
+| ACTN-04 | Phase 11 | Complete |
 | RESP-01 | Phase 10 | Pending |
 | RESP-02 | Phase 10 | Pending |
 | RESP-03 | Phase 10 | Pending |

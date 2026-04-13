@@ -98,8 +98,8 @@ Plans:
   4. Fixed action buttons render within 100ms of overlay open; AI-suggested context-specific actions append later without blocking interaction
 **Plans**: 3 plans
 Plans:
-- [ ] 11-W0-PLAN.md — TDD Wave 0: quickActionPresets.ts module + unit tests (ACTN-01, ACTN-03)
-- [ ] 11-01-PLAN.md — QuickActions.tsx + SidebarShell wiring for empty-state (ACTN-01, ACTN-02, ACTN-04)
+- [x] 11-W0-PLAN.md — TDD Wave 0: quickActionPresets.ts module + unit tests (ACTN-01, ACTN-03)
+- [x] 11-01-PLAN.md — QuickActions.tsx + SidebarShell wiring for empty-state (ACTN-01, ACTN-02, ACTN-04)
 - [ ] 11-02-PLAN.md — TryAnotherWay.tsx + SidebarShell wiring for done-state (ACTN-03)
 **UI hint**: yes
 
@@ -110,4 +110,4 @@ Plans:
 | 8. Backend Foundations | 2/2 | Complete   | 2026-04-11 |
 | 9. State Machine + Conversation Continuity | 2/3 | In Progress|  |
 | 10. Step Tracking + Response Quality | 4/4 | Complete    | 2026-04-13 |
-| 11. Action-First UI | 0/3 | Not started | - |
+| 11. Action-First UI | 2/3 | In Progress|  |
