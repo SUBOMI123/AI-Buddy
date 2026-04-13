@@ -45,6 +45,7 @@ html, body, #root {
     --color-accent: #007AFF;
     --color-destructive: #FF3B30;
     --color-border: rgba(0, 0, 0, 0.12);
+    --color-step-current: rgba(0, 122, 255, 0.10);
   }
 }
 
@@ -57,5 +58,6 @@ html, body, #root {
     --color-accent: #0A84FF;
     --color-destructive: #FF453A;
     --color-border: rgba(255, 255, 255, 0.12);
+    --color-step-current: rgba(10, 132, 255, 0.15);
   }
 }

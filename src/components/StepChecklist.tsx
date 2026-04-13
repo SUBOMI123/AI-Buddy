@@ -77,7 +77,7 @@ export function StepChecklist(props: StepChecklistProps) {
               style={{
                 // D-03: current step highlight
                 background: isCurrent()
-                  ? "var(--color-surface-secondary)"
+                  ? "var(--color-step-current)"
                   : "transparent",
                 "border-left": "3px solid transparent",  // preserves column width (UI-SPEC); no accent bar (260413-1kn)
                 "min-height": "44px",           // D-10: accessibility touch target
