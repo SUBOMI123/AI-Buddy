@@ -83,6 +83,8 @@ export function SidebarShell() {
   const [currentExchange, setCurrentExchange] = createSignal<SessionExchange | null>(null);
   // Phase 10 D-02, D-13: steps parsed at onDone; reset at start of submitIntent
   const [steps, setSteps] = createSignal<Step[]>([]);
+  // Phase 10 UAT fix: explicit highlight state — not derived from first-incomplete
+  const [currentStepIndex, setCurrentStepIndex] = createSignal<number>(0);
 
   let inputRef: HTMLInputElement | undefined;
   let unlistenOverlay: (() => void) | undefined;
@@ -268,6 +270,7 @@ export function SidebarShell() {
       setCurrentExchange(null);
     }
     setSteps([]);
+    setCurrentStepIndex(0);
 
     // Clear STT error on new submission
     setSttError("");
@@ -439,6 +442,7 @@ export function SidebarShell() {
     setExpandedHistoryItems(new Set<number>()); // 260413-09m: reset collapse state on new task
     setCurrentExchange(null);
     setSteps([]);
+    setCurrentStepIndex(0);
     setLastIntent("");
     setStreamingText("");
     setContentState("empty");
@@ -716,7 +720,9 @@ export function SidebarShell() {
               ? (
                 <StepChecklist
                   steps={steps()}
+                  currentStepIndex={currentStepIndex()}
                   onToggle={(index) => {
+                    setCurrentStepIndex(index);
                     setSteps((prev) =>
                       prev.map((step, i) =>
                         i === index ? { ...step, completed: !step.completed } : step

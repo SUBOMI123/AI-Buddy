@@ -4,6 +4,7 @@ import type { Step } from "../lib/parseSteps";
 
 interface StepChecklistProps {
   steps: Step[];                    // D-10: locked interface shape
+  currentStepIndex: number;         // Phase 10 UAT fix: explicit highlight state driven from parent
   onToggle: (index: number) => void;
 }
 
@@ -48,8 +49,7 @@ function extractInlineCommand(label: string): string | null {
 }
 
 export function StepChecklist(props: StepChecklistProps) {
-  // D-03: current step = first item where completed === false (derived, not stored)
-  const currentStepIndex = () => props.steps.findIndex((s) => !s.completed);
+  // Phase 10 UAT fix: currentStepIndex is now a prop driven from SidebarShell — not derived locally
   const [copiedIndex, setCopiedIndex] = createSignal<number | null>(null);
 
   return (
@@ -64,7 +64,8 @@ export function StepChecklist(props: StepChecklistProps) {
           // D-03: reactive derivations — evaluated per render
           // NOTE: with createSignal<Step[]>, step is a snapshot; SolidJS re-runs
           // For items when the array signal changes (see RESEARCH.md Pitfall 1)
-          const isCurrent = () => index() === currentStepIndex() && !step.completed;
+          // Phase 10 UAT fix: isCurrent uses prop directly — not derived from first-incomplete
+          const isCurrent = () => index() === props.currentStepIndex && !step.completed;
           const isCompleted = () => step.completed;
           const inlineCmd = () => extractInlineCommand(step.label);
           const showCopyButton = () => inlineCmd() !== null || isCommandLine(step.label);
@@ -95,6 +96,20 @@ export function StepChecklist(props: StepChecklistProps) {
                 width: "100%",
               }}
             >
+              {/* Step number — UAT fix: visible position indicator */}
+              <span
+                style={{
+                  "font-size": "var(--font-size-body)",
+                  "line-height": "var(--line-height-body)",
+                  color: "var(--color-text-secondary)",
+                  "min-width": "16px",
+                  "text-align": "right",
+                  "flex-shrink": "0",
+                }}
+              >
+                {index() + 1}
+              </span>
+
               {/* D-10: Check icon for completed, Square for incomplete */}
               <Show
                 when={isCompleted()}
