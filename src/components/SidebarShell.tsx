@@ -3,7 +3,8 @@ import { X, Settings, Plus } from "lucide-solid";
 import { DragHandle } from "./DragHandle";
 import { SettingsScreen } from "./SettingsScreen";
 import { TextInput } from "./TextInput";
-import { EmptyState, NoPermissionState } from "./EmptyState";
+import { NoPermissionState } from "./EmptyState";
+import { QuickActions } from "./QuickActions";
 import { SessionFeed, type SessionExchange } from "./SessionFeed";
 import { LoadingDots } from "./LoadingDots";
 import { parseSteps, isClarifyingQuestion, type Step } from "../lib/parseSteps";
@@ -686,7 +687,11 @@ export function SidebarShell() {
 
         {/* Empty state */}
         <Show when={!needsPermission() && !permissionDenied() && contentState() === "empty" && sessionHistory().length === 0}>
-          <EmptyState />
+          <QuickActions
+            onAction={(preset) => submitIntent(preset)}
+            onAsk={() => inputRef?.focus()}
+            disabled={contentState() === "loading" || contentState() === "streaming"}
+          />
         </Show>
 
         {/* No permission state */}
