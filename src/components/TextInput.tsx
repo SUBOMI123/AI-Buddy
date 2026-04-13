@@ -92,7 +92,7 @@ export function TextInput(props: TextInputProps) {
         <input
           ref={props.ref}
           type="text"
-          placeholder={props.listening ? "Listening..." : "Ask me anything about what's on your screen..."}
+          placeholder={props.listening ? "Listening..." : "Or type your own task..."}
           value={props.value()}
           onInput={(e) => props.setValue(e.currentTarget.value)}
           onKeyDown={handleKeyDown}

@@ -702,6 +702,7 @@ export function SidebarShell() {
             onAction={(preset) => submitIntent(preset)}
             onAsk={() => inputRef?.focus()}
             disabled={contentState() === "loading" || contentState() === "streaming"}
+            hasRegion={!!selectedRegion()}
           />
         </Show>
 
