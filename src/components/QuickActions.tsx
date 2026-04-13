@@ -10,10 +10,10 @@ interface QuickActionsProps {
 
 export function QuickActions(props: QuickActionsProps) {
   const buttons = [
-    { label: "Fix issue",      ariaLabel: "Fix issue",      action: () => props.onAction(QUICK_PRESETS["Fix"]) },
-    { label: "Explain this",   ariaLabel: "Explain this",   action: () => props.onAction(QUICK_PRESETS["Explain"]) },
-    { label: "Improve this",   ariaLabel: "Improve this",   action: () => props.onAction(QUICK_PRESETS["Optimize"]) },
-    { label: "Ask about this", ariaLabel: "Ask about this", action: () => props.onAsk() },
+    { label: "Fix issue",    ariaLabel: "Fix issue",    action: () => props.onAction(QUICK_PRESETS["Fix"]) },
+    { label: "Explain this", ariaLabel: "Explain this", action: () => props.onAction(QUICK_PRESETS["Explain"]) },
+    { label: "Improve this", ariaLabel: "Improve this", action: () => props.onAction(QUICK_PRESETS["Optimize"]) },
+    { label: "Ask",          ariaLabel: "Ask",          action: () => props.onAsk() },
   ];
 
   return (
@@ -45,7 +45,7 @@ export function QuickActions(props: QuickActionsProps) {
             color: "var(--color-text-secondary)",
           }}
         >
-          {props.hasRegion ? "Region selected" : "What do you want to do?"}
+          {props.hasRegion ? "What should I do with this?" : "What do you want to do?"}
         </span>
       </div>
 
@@ -57,7 +57,7 @@ export function QuickActions(props: QuickActionsProps) {
         style={{
           display: "grid",
           "grid-template-columns": "1fr 1fr",
-          gap: "var(--space-sm)",
+          gap: "calc(var(--space-sm) * 0.9)",
           padding: "calc(var(--space-lg) * 0.85) var(--space-md)",
           opacity: props.disabled ? "0.5" : "1",
           "pointer-events": props.disabled ? "none" : "auto",
@@ -82,15 +82,19 @@ export function QuickActions(props: QuickActionsProps) {
                 "font-weight": "var(--font-weight-regular)",
                 color: "var(--color-text-primary)",
                 cursor: "pointer",
-                transition: "var(--transition-fast)",
+                transition: "filter 100ms ease, transform 100ms ease",
                 "text-align": "center",
                 width: "100%",
               }}
               onMouseEnter={(e) => {
-                (e.currentTarget as HTMLButtonElement).style.filter = "brightness(1.15)";
+                const el = e.currentTarget as HTMLButtonElement;
+                el.style.filter = "brightness(1.15)";
+                el.style.transform = "scale(1.02)";
               }}
               onMouseLeave={(e) => {
-                (e.currentTarget as HTMLButtonElement).style.filter = "";
+                const el = e.currentTarget as HTMLButtonElement;
+                el.style.filter = "";
+                el.style.transform = "";
               }}
             >
               {btn.label}
