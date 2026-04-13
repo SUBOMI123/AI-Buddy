@@ -88,6 +88,7 @@ New for v2.0 (from research):
 | 260413-1kk | Update SYSTEM_PROMPT to command-first format: Verb: `command` with no trailing prose, no-navigation-assumption rule | 2026-04-13 |
 | 260413-1kn | Compact single-row header with cleanLabel + Plus button, remove blue left-border from current step, copy button primary color at rest | 2026-04-13 |
 | 260413-1x7 | Show AI-generated task summary in header instead of raw user query | 2026-04-13 |
+| 260413-2bu | Make current-step highlight visible — rgba(255,255,255,0.08) too subtle in dark mode | 2026-04-13 |
 
 ### Pending Todos
 
