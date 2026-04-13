@@ -67,11 +67,11 @@ Users complete tasks in unfamiliar software without Googling or getting stuck. I
 - Key insight: users don't want to "learn Figma" — they want to "do this one thing." Task completion, not education.
 - The "accuracy" that matters is intent accuracy and flow accuracy, not UI precision. If the user completes the task, the AI is "accurate."
 
-**Current state (v1.0):**
+**Current state (after Phase 10):**
 - Stack: Tauri v2 + SolidJS + Rust (src-tauri) + Cloudflare Worker (Hono)
-- ~4,739 LOC across 29 source files
-- 7 phases planned, 7 executed and verified (phases 4–7 UAT-verified; phases 1–3 plans complete and ready)
-- Shipped: screen region selection, learning memory + skill profiles, voice settings UI (TTS auto-play + PTT key capture), production hardening (CORS, dead code removal, placeholder docs)
+- Phases 8–10 executed and human-verified
+- Shipped (Phase 10): step-first AI responses enforced in system prompt; `parseSteps()` pure function; `StepChecklist` component with interactive toggles, inline command extraction, and "Copied!" feedback; `RawGuidanceText` fallback for clarifying questions; collapsible session history; session scroll fixed
+- Next: Phase 11 — Action-First UI (QuickActions component)
 - Deploy-time gates remaining: KV namespace ID in wrangler.toml, auto-updater endpoint + pubkey in tauri.conf.json (both documented with PRODUCTION REQUIRED banners)
 
 ## Constraints
@@ -112,4 +112,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-04-11 at v1.0 milestone completion*
+*Last updated: 2026-04-13 — Phase 10 complete (step-tracking-response-quality)*
