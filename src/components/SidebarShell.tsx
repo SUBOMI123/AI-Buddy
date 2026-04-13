@@ -33,7 +33,8 @@ import { streamGuidance } from "../lib/ai";
 
 // D-08: "listening" added for PTT active state
 // Phase 4: "selecting" added for region selection in-progress state
-type ContentState = "empty" | "loading" | "streaming" | "error" | "listening" | "selecting";
+// Phase 9: "done" added — post-completion stable state (distinct from "streaming" and "empty")
+type ContentState = "empty" | "loading" | "streaming" | "done" | "error" | "listening" | "selecting";
 
 export function SidebarShell() {
   const [needsPermission, setNeedsPermission] = createSignal(true);
@@ -115,7 +116,8 @@ export function SidebarShell() {
 
       const unlisten = await onOverlayShown(async () => {
         // Phase 9 D-11: Only reset transient UI states — never session history or task header
-        if (["loading", "streaming", "error"].includes(contentState())) {
+        // "done" is included so stale streaming text from a prior completed response is cleared
+        if (["loading", "streaming", "error", "done"].includes(contentState())) {
           setContentState("empty");
           setStreamingText("");
           abortController?.abort();
@@ -364,6 +366,9 @@ export function SidebarShell() {
           const updated = [...prev, completedExchange];
           return updated.length > 3 ? updated.slice(updated.length - 3) : updated;
         });
+        // Phase 9 WR-02: transition to "done" — stable post-completion state that prevents
+        // the degradation notice from appearing as a false positive on overlay re-open.
+        setContentState("done");
         // Auto-play full guidance on arrival if TTS enabled (D-12: silent fail)
         if (ttsEnabled()) {
           playTts(accumulatedText).catch(() => {});  // use local, not signal
@@ -553,8 +558,9 @@ export function SidebarShell() {
           </div>
         </Show>
 
-        {/* Phase 5 D-04: Degradation notice — shown when tier > 1 and streaming/after streaming */}
-        <Show when={!needsPermission() && currentTier() > 1 && (contentState() === "streaming" || contentState() === "empty") && streamingText().length > 0}>
+        {/* Phase 5 D-04: Degradation notice — shown when tier > 1 and streaming or done */}
+        {/* WR-02: "done" replaces "empty" — avoids false positive on overlay re-open */}
+        <Show when={!needsPermission() && currentTier() > 1 && (contentState() === "streaming" || contentState() === "done") && streamingText().length > 0}>
           <div
             style={{
               "font-size": "var(--font-size-label)",
@@ -606,7 +612,8 @@ export function SidebarShell() {
         </Show>
 
         {/* Phase 9 SESS-02: Session feed — visible whenever session has content or is active */}
-        <Show when={!needsPermission() && (sessionHistory().length > 0 || contentState() === "streaming" || contentState() === "loading")}>
+        {/* WR-02: include "done" so feed remains visible after stream completes */}
+        <Show when={!needsPermission() && (sessionHistory().length > 0 || contentState() === "streaming" || contentState() === "loading" || contentState() === "done")}>
           <SessionFeed
             sessionHistory={sessionHistory()}
             streamingText={streamingText()}
