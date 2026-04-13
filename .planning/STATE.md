@@ -21,14 +21,14 @@ progress:
 See: .planning/PROJECT.md (updated 2026-04-11)
 
 **Core value:** Users complete tasks in unfamiliar software without Googling or getting stuck
-**Current focus:** Phase 09 — state-machine-conversation-continuity
+**Current focus:** Phase 10 — step-tracking-response-quality
 
 ## Current Position
 
-Phase: 09 (state-machine-conversation-continuity) — EXECUTING
-Plan: 3 of 3
-Status: Ready to execute
-Last activity: 2026-04-13
+Phase: 10 (step-tracking-response-quality) — PLANNING
+Plan: 0 of TBD
+Status: Context complete — ready for research + planning
+Last activity: 2026-04-12
 
 Progress: [░░░░░░░░░░] 0%
 
@@ -67,6 +67,11 @@ New for v2.0 (from research):
 - [Phase 09]: ref exposed as a callback prop (el: HTMLDivElement) => void so SidebarShell controls auto-scroll trigger location
 - [Phase 09]: D-11: onOverlayShown conditionally resets only transient states — session history and lastIntent survive hide/show
 - [Phase 09]: D-10: sessionHistory is in-memory signal only, never serialized to localStorage or disk
+- [Phase 10]: Steps parsed post-stream at onDone only — never during streaming (avoids partial-step flicker)
+- [Phase 10]: currentExchange signal separates active exchange from sessionHistory — onDone sets currentExchange, submitIntent moves it to history at start of next call
+- [Phase 10]: Copy buttons on markdown fences + command-pattern lines (git, npm, npx, pip, cd, curl, docker, etc.) — navigator.clipboard API, no Tauri plugin
+- [Phase 10]: System prompt replaced with strict "start with 1. on line 1, no preamble" format
+- [Phase 10]: Prior session history stays flat muted text (no checklist on historical items)
 
 ### Quick Tasks Completed
 
