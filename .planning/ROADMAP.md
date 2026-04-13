@@ -100,7 +100,7 @@ Plans:
 Plans:
 - [x] 11-W0-PLAN.md — TDD Wave 0: quickActionPresets.ts module + unit tests (ACTN-01, ACTN-03)
 - [x] 11-01-PLAN.md — QuickActions.tsx + SidebarShell wiring for empty-state (ACTN-01, ACTN-02, ACTN-04)
-- [ ] 11-02-PLAN.md — TryAnotherWay.tsx + SidebarShell wiring for done-state (ACTN-03)
+- [x] 11-02-PLAN.md — TryAnotherWay.tsx + SidebarShell wiring for done-state (ACTN-03)
 **UI hint**: yes
 
 ## Progress
@@ -110,4 +110,4 @@ Plans:
 | 8. Backend Foundations | 2/2 | Complete   | 2026-04-11 |
 | 9. State Machine + Conversation Continuity | 2/3 | In Progress|  |
 | 10. Step Tracking + Response Quality | 4/4 | Complete    | 2026-04-13 |
-| 11. Action-First UI | 2/3 | In Progress|  |
+| 11. Action-First UI | 3/3 | Complete    | 2026-04-13 |
