@@ -4,7 +4,7 @@ import { DragHandle } from "./DragHandle";
 import { SettingsScreen } from "./SettingsScreen";
 import { TextInput } from "./TextInput";
 import { EmptyState, NoPermissionState } from "./EmptyState";
-import { GuidanceList } from "./GuidanceList";
+import { SessionFeed, type SessionExchange } from "./SessionFeed";
 import { LoadingDots } from "./LoadingDots";
 import { PermissionDialog } from "./PermissionDialog";
 import {
@@ -69,6 +69,9 @@ export function SidebarShell() {
   // Phase 8: CTX-01 — detected active app name (null until overlay shown)
   const [detectedApp, setDetectedApp] = createSignal<string | null>(null);
 
+  // Phase 9: SESS-01, SESS-02 — session exchange history (D-10: in-memory only)
+  const [sessionHistory, setSessionHistory] = createSignal<SessionExchange[]>([]);
+
   let inputRef: HTMLInputElement | undefined;
   let unlistenOverlay: (() => void) | undefined;
   let unlistenPttStart: (() => void) | undefined;
@@ -78,6 +81,7 @@ export function SidebarShell() {
   let unlistenRegionSelected: (() => void) | undefined;
   let unlistenRegionCancelled: (() => void) | undefined;
   let abortController: AbortController | null = null;
+  let sessionFeedRef: HTMLDivElement | undefined;
   // WR-01: generation counter guards against double-submit races.
   // Each submitIntent call captures its own generation; stale callbacks are discarded.
   let submitGen = 0;
@@ -110,19 +114,22 @@ export function SidebarShell() {
       }
 
       const unlisten = await onOverlayShown(async () => {
-        // Reset to idle on every open so stale error/loading states don't persist
-        setContentState("empty");
-        setErrorMessage("");
-        setStreamingText("");
-        abortController?.abort();
-        abortController = null;
+        // Phase 9 D-11: Only reset transient UI states — never session history or task header
+        if (["loading", "streaming", "error"].includes(contentState())) {
+          setContentState("empty");
+          setStreamingText("");
+          abortController?.abort();
+          abortController = null;
+        }
+        setErrorMessage(""); // always clear error message
+        setSttError("");     // always clear STT error
         if (inputRef && !needsPermission()) {
           inputRef.focus();
         }
         // CTX-01: Detect active app non-blocking — do NOT await (Pitfall 4: blocks overlay open)
-        // Fire-and-forget: signal updates asynchronously after overlay is already interactive
-        setDetectedApp(null); // reset stale value from previous session
+        setDetectedApp(null);
         getActiveApp().then((app) => setDetectedApp(app)).catch(() => setDetectedApp(null));
+        // sessionHistory and lastIntent are NOT touched here (D-11)
       });
       if (cancelled) { unlisten(); return; }
       unlistenOverlay = unlisten;
@@ -250,6 +257,12 @@ export function SidebarShell() {
     setContentState("loading");
     setLastIntent(intent);
 
+    // Phase 9 SESS-01: build prior turn context for Claude (D-08, D-09)
+    const conversationHistory = sessionHistory().flatMap((exchange) => [
+      { role: "user" as const, content: exchange.intent },
+      { role: "assistant" as const, content: exchange.guidance },
+    ]);
+
     // Phase 5: Classify intent + get tier (D-02, D-03)
     // Force tier 1 if user clicked "Show full steps" (D-04)
     const fallbackLabel = intent.slice(0, 50).replace(/\s+/g, "_").toLowerCase();
@@ -320,10 +333,15 @@ export function SidebarShell() {
       memoryContext,
       taskLabel: ctx.taskLabel,
       appContext: detectedApp() ?? undefined,  // CTX-02: active app for prompt enrichment
+      conversationHistory,  // Phase 9 SESS-01 (D-08): prior turns text-only
       onToken: (text) => {
         accumulatedText += text;               // local accumulator — synchronous, no signal read lag
         if (contentState() === "loading") {
           setContentState("streaming");
+          // Phase 9 D-05: auto-scroll to bottom when first token arrives
+          if (sessionFeedRef) {
+            sessionFeedRef.scrollTop = sessionFeedRef.scrollHeight;
+          }
         }
         setStreamingText(accumulatedText);     // signal for UI display
       },
@@ -337,6 +355,15 @@ export function SidebarShell() {
         if (contentState() === "loading") {
           setContentState("streaming");
         }
+        // Phase 9 SESS-01: append completed exchange to history, cap at 3 (D-09)
+        const completedExchange: SessionExchange = {
+          intent: lastIntent(),
+          guidance: accumulatedText, // use local accumulator, not signal (CR-02)
+        };
+        setSessionHistory((prev) => {
+          const updated = [...prev, completedExchange];
+          return updated.length > 3 ? updated.slice(updated.length - 3) : updated;
+        });
         // Auto-play full guidance on arrival if TTS enabled (D-12: silent fail)
         if (ttsEnabled()) {
           playTts(accumulatedText).catch(() => {});  // use local, not signal
@@ -376,6 +403,20 @@ export function SidebarShell() {
     }
   };
 
+  // Phase 9 D-01, SESS-03: "New task" resets all session state explicitly
+  const handleNewTask = () => {
+    abortController?.abort();
+    abortController = null;
+    setSessionHistory([]);
+    setLastIntent("");
+    setStreamingText("");
+    setContentState("empty");
+    setErrorMessage("");
+    setSttError("");
+    setScreenshotFailed(false);
+    setTimeout(() => inputRef?.focus(), 0);
+  };
+
   return (
     <div
       class="sidebar-shell"
@@ -387,7 +428,7 @@ export function SidebarShell() {
         display: "flex",
         "flex-direction": "column",
         overflow: "hidden",
-        animation: "slideIn 200ms cubic-bezier(0.16, 1, 0.3, 1) forwards",
+        animation: "slideIn 80ms cubic-bezier(0.16, 1, 0.3, 1) forwards",
       }}
     >
       <style>{`
@@ -433,6 +474,53 @@ export function SidebarShell() {
 
       {/* Main content — hidden when settings open */}
       <Show when={!showSettings()}>
+      {/* Phase 9 TASK-01: Task header strip — shows when session is active (D-07) */}
+      <Show when={lastIntent().length > 0}>
+        <div
+          aria-live="polite"
+          style={{
+            background: "var(--color-surface-secondary)",
+            "border-bottom": "1px solid var(--color-border)",
+            padding: "var(--space-sm) var(--space-md)",
+            "flex-shrink": "0",
+            display: "flex",
+            "flex-direction": "column",
+          }}
+        >
+          <p
+            style={{
+              "font-size": "var(--font-size-label)",
+              "line-height": "var(--line-height-label)",
+              color: "var(--color-text-primary)",
+              margin: "0",
+              overflow: "hidden",
+              "text-overflow": "ellipsis",
+              "white-space": "nowrap",
+            }}
+          >
+            {lastIntent().length > 50 ? lastIntent().slice(0, 50) + "\u2026" : lastIntent()}
+          </p>
+          <button
+            onClick={handleNewTask}
+            aria-label="Start a new task"
+            style={{
+              border: "none",
+              background: "transparent",
+              color: "var(--color-accent)",
+              "font-size": "var(--font-size-label)",
+              cursor: "pointer",
+              padding: "0",
+              "text-decoration": "underline",
+              "min-height": "44px",
+              display: "inline-flex",
+              "align-items": "center",
+              "align-self": "flex-start",
+            }}
+          >
+            New task
+          </button>
+        </div>
+      </Show>
       <div
         class="sidebar-content"
         style={{
@@ -503,7 +591,7 @@ export function SidebarShell() {
         </Show>
 
         {/* Empty state */}
-        <Show when={!needsPermission() && !permissionDenied() && contentState() === "empty"}>
+        <Show when={!needsPermission() && !permissionDenied() && contentState() === "empty" && sessionHistory().length === 0}>
           <EmptyState />
         </Show>
 
@@ -512,16 +600,18 @@ export function SidebarShell() {
           <NoPermissionState />
         </Show>
 
-        {/* Loading state (D-06) */}
-        <Show when={!needsPermission() && contentState() === "loading"}>
+        {/* Loading state — only shown on first query (no history yet) */}
+        <Show when={!needsPermission() && contentState() === "loading" && sessionHistory().length === 0}>
           <LoadingDots />
         </Show>
 
-        {/* Streaming state — pass ttsEnabled to GuidanceList */}
-        <Show when={!needsPermission() && contentState() === "streaming"}>
-          <GuidanceList
+        {/* Phase 9 SESS-02: Session feed — visible whenever session has content or is active */}
+        <Show when={!needsPermission() && (sessionHistory().length > 0 || contentState() === "streaming" || contentState() === "loading")}>
+          <SessionFeed
+            sessionHistory={sessionHistory()}
             streamingText={streamingText()}
             ttsEnabled={ttsEnabled()}
+            ref={(el) => { sessionFeedRef = el; }}
           />
         </Show>
 
