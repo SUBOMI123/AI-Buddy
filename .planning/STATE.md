@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: — Foundation + Core Loop + Voice + Learning
 status: executing
-stopped_at: Phase 9 UI-SPEC approved
-last_updated: "2026-04-13T01:21:06.562Z"
-last_activity: 2026-04-13 -- Phase 09 planning complete
+stopped_at: Completed 09-02-PLAN.md
+last_updated: "2026-04-13T01:26:26.935Z"
+last_activity: 2026-04-13
 progress:
   total_phases: 2
   completed_phases: 1
   total_plans: 5
-  completed_plans: 2
-  percent: 40
+  completed_plans: 4
+  percent: 80
 ---
 
 # Project State
@@ -21,14 +21,14 @@ progress:
 See: .planning/PROJECT.md (updated 2026-04-11)
 
 **Core value:** Users complete tasks in unfamiliar software without Googling or getting stuck
-**Current focus:** Phase 08 — backend-foundations
+**Current focus:** Phase 09 — state-machine-conversation-continuity
 
 ## Current Position
 
-Phase: 08 (backend-foundations) — EXECUTING
-Plan: 2 of 2
+Phase: 09 (state-machine-conversation-continuity) — EXECUTING
+Plan: 2 of 3
 Status: Ready to execute
-Last activity: 2026-04-13 -- Phase 09 planning complete
+Last activity: 2026-04-13
 
 Progress: [░░░░░░░░░░] 0%
 
@@ -63,6 +63,8 @@ New for v2.0 (from research):
 - [Phase 08]: app_name trimmed and capped at 100 chars before prompt injection (T-08-02-01 mitigation)
 - [Phase 08]: Only win.app_name read in app_context.rs — win.title never accessed to avoid Screen Recording permission (T-08-02-02)
 - [Phase 08]: getActiveApp() called fire-and-forget in onOverlayShown — never awaited to keep overlay open latency unaffected (T-08-02-03)
+- [Phase 09]: SessionFeed is a pure props-driven renderer — no createSignal inside; all reactive state lives in SidebarShell
+- [Phase 09]: ref exposed as a callback prop (el: HTMLDivElement) => void so SidebarShell controls auto-scroll trigger location
 
 ### Quick Tasks Completed
 
@@ -83,6 +85,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-04-13T01:01:42.974Z
-Stopped at: Phase 9 UI-SPEC approved
-Resume file: .planning/phases/09-state-machine-conversation-continuity/09-UI-SPEC.md
+Last session: 2026-04-13T01:26:26.933Z
+Stopped at: Completed 09-02-PLAN.md
+Resume file: None

@@ -25,7 +25,7 @@
 ### Session
 
 - [ ] **SESS-01**: Follow-up queries are resolved using structured task context (current intent + last guidance steps + selected region) — not full conversation history
-- [ ] **SESS-02**: Previous guidance exchanges in the current session are scrollable above the current response — session history visible in-overlay
+- [x] **SESS-02**: Previous guidance exchanges in the current session are scrollable above the current response — session history visible in-overlay
 - [ ] **SESS-03**: Session context resets when user submits a new unrelated intent — old task context does not bleed into a new task
 
 ### Step Tracking
@@ -91,7 +91,7 @@
 | RESP-02 | Phase 10 | Pending |
 | RESP-03 | Phase 10 | Pending |
 | SESS-01 | Phase 9 | Pending |
-| SESS-02 | Phase 9 | Pending |
+| SESS-02 | Phase 9 | Complete |
 | SESS-03 | Phase 9 | Pending |
 | STEP-01 | Phase 10 | Pending |
 | STEP-02 | Phase 10 | Pending |
