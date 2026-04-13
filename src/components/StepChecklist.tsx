@@ -79,9 +79,7 @@ export function StepChecklist(props: StepChecklistProps) {
                 background: isCurrent()
                   ? "var(--color-surface-secondary)"
                   : "transparent",
-                "border-left": isCurrent()
-                  ? "3px solid var(--color-accent)"
-                  : "3px solid transparent",  // preserves column width (UI-SPEC)
+                "border-left": "3px solid transparent",  // preserves column width (UI-SPEC); no accent bar (260413-1kn)
                 "min-height": "44px",           // D-10: accessibility touch target
                 padding: "var(--space-sm) var(--space-md)",
                 display: "flex",
@@ -163,7 +161,7 @@ export function StepChecklist(props: StepChecklistProps) {
                     "min-height": "44px",   // UI-SPEC: touch target
                     "min-width": "44px",
                     "margin-left": "var(--space-xs)",  // UI-SPEC: 4px gap from text
-                    color: "var(--color-text-secondary)",
+                    color: "var(--color-text-primary)",
                     "flex-shrink": "0",
                   }}
                   onMouseEnter={(e) => {
@@ -173,7 +171,7 @@ export function StepChecklist(props: StepChecklistProps) {
                   onMouseLeave={(e) => {
                     if (copiedIndex() !== index()) {
                       (e.currentTarget as HTMLButtonElement).style.color =
-                        "var(--color-text-secondary)";
+                        "var(--color-text-primary)";
                     }
                   }}
                 >
