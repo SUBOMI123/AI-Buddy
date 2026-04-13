@@ -6,6 +6,9 @@ import { TextInput } from "./TextInput";
 import { EmptyState, NoPermissionState } from "./EmptyState";
 import { SessionFeed, type SessionExchange } from "./SessionFeed";
 import { LoadingDots } from "./LoadingDots";
+import { parseSteps, type Step } from "../lib/parseSteps";
+import { StepChecklist } from "./StepChecklist";
+import { RawGuidanceText } from "./RawGuidanceText";
 import { PermissionDialog } from "./PermissionDialog";
 import {
   checkScreenPermission,
@@ -72,6 +75,12 @@ export function SidebarShell() {
 
   // Phase 9: SESS-01, SESS-02 — session exchange history (D-10: in-memory only)
   const [sessionHistory, setSessionHistory] = createSignal<SessionExchange[]>([]);
+
+  // Phase 10 D-05: currentExchange separates active exchange from sessionHistory
+  // — avoids duplicate rendering when StepChecklist is shown below SessionFeed
+  const [currentExchange, setCurrentExchange] = createSignal<SessionExchange | null>(null);
+  // Phase 10 D-02, D-13: steps parsed at onDone; reset at start of submitIntent
+  const [steps, setSteps] = createSignal<Step[]>([]);
 
   let inputRef: HTMLInputElement | undefined;
   let unlistenOverlay: (() => void) | undefined;
@@ -245,6 +254,18 @@ export function SidebarShell() {
     // WR-01: capture generation before any await so stale callbacks can self-discard
     const thisGen = ++submitGen;
 
+    // D-05: move currentExchange to sessionHistory before clearing (history-first, then clear)
+    // D-13: reset steps at start of each new submission
+    if (currentExchange() !== null) {
+      const prev = currentExchange()!;
+      setSessionHistory((h) => {
+        const updated = [...h, prev];
+        return updated.length > 3 ? updated.slice(updated.length - 3) : updated;
+      });
+      setCurrentExchange(null);
+    }
+    setSteps([]);
+
     // Clear STT error on new submission
     setSttError("");
 
@@ -357,15 +378,14 @@ export function SidebarShell() {
         if (contentState() === "loading") {
           setContentState("streaming");
         }
-        // Phase 9 SESS-01: append completed exchange to history, cap at 3 (D-09)
+        // D-05: set currentExchange instead of pushing to sessionHistory
+        // D-01, D-02: parse steps post-stream only (never during streaming)
         const completedExchange: SessionExchange = {
           intent: lastIntent(),
           guidance: accumulatedText, // use local accumulator, not signal (CR-02)
         };
-        setSessionHistory((prev) => {
-          const updated = [...prev, completedExchange];
-          return updated.length > 3 ? updated.slice(updated.length - 3) : updated;
-        });
+        setCurrentExchange(completedExchange);
+        setSteps(parseSteps(accumulatedText));
         // Phase 9 WR-02: transition to "done" — stable post-completion state that prevents
         // the degradation notice from appearing as a false positive on overlay re-open.
         setContentState("done");
@@ -413,6 +433,8 @@ export function SidebarShell() {
     abortController?.abort();
     abortController = null;
     setSessionHistory([]);
+    setCurrentExchange(null);
+    setSteps([]);
     setLastIntent("");
     setStreamingText("");
     setContentState("empty");
