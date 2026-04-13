@@ -85,6 +85,8 @@ export function SidebarShell() {
   const [steps, setSteps] = createSignal<Step[]>([]);
   // Phase 10 UAT fix: explicit highlight state — not derived from first-incomplete
   const [currentStepIndex, setCurrentStepIndex] = createSignal<number>(0);
+  // 260413-1x7: AI-generated task title from "Task: ..." line in response
+  const [taskTitle, setTaskTitle] = createSignal<string>("");
 
   let inputRef: HTMLInputElement | undefined;
   let unlistenOverlay: (() => void) | undefined;
@@ -271,6 +273,7 @@ export function SidebarShell() {
     }
     setSteps([]);
     setCurrentStepIndex(0);
+    setTaskTitle(""); // 260413-1x7: reset AI title on new submission
 
     // Clear STT error on new submission
     setSttError("");
@@ -391,7 +394,9 @@ export function SidebarShell() {
           guidance: accumulatedText, // use local accumulator, not signal (CR-02)
         };
         setCurrentExchange(completedExchange);
-        setSteps(parseSteps(accumulatedText));
+        const { steps: parsedSteps, title: parsedTitle } = parseSteps(accumulatedText);
+        setSteps(parsedSteps);
+        setTaskTitle(parsedTitle);
         // Phase 9 WR-02: transition to "done" — stable post-completion state that prevents
         // the degradation notice from appearing as a false positive on overlay re-open.
         setContentState("done");
@@ -443,6 +448,7 @@ export function SidebarShell() {
     setCurrentExchange(null);
     setSteps([]);
     setCurrentStepIndex(0);
+    setTaskTitle("");
     setLastIntent("");
     setStreamingText("");
     setContentState("empty");
@@ -545,7 +551,7 @@ export function SidebarShell() {
               "min-width": "0",
             }}
           >
-            Working on: {cleanLabel(lastIntent())}
+            {taskTitle() ? taskTitle() : `Working on: ${cleanLabel(lastIntent())}`}
           </span>
 
           {/* + button — new task */}
