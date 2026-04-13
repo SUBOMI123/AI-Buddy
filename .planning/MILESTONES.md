@@ -1,5 +1,25 @@
 # Milestones
 
+## v2.0 Task-Native Experience (Shipped: 2026-04-13)
+
+**Phases completed:** 4 phases, 12 plans, 1 tasks
+
+**Key accomplishments:**
+
+- One-liner:
+- One-liner:
+- One-liner:
+- One-liner:
+- SidebarShell wired with in-memory sessionHistory signal, TaskHeaderStrip, "New task" reset, fixed onOverlayShown, and SessionFeed replacing GuidanceList — completing Phase 9 session continuity.
+- src/lib/parseSteps.ts
+- src/components/StepChecklist.tsx
+- src/components/SidebarShell.tsx
+- vitest.config.ts
+- One-liner:
+- One-liner:
+
+---
+
 ## v1.0 AI Buddy v1.0 (Shipped: 2026-04-11)
 
 **Phases completed:** 7 phases, 17 plans, 14 tasks

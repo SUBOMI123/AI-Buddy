@@ -8,20 +8,9 @@ A cross-platform desktop app that helps you use any software — even if you've 
 
 Users complete tasks in unfamiliar software without Googling or getting stuck. If everything else fails, this must work: user says what they want to do → AI gives clear steps → user does it.
 
-## Current Milestone: v2.0 — Task-Native Experience
+## Current Milestone: v3.0 — (to be defined)
 
-**Goal:** Transform AI Buddy from a capable AI assistant into a task execution tool — action-first UI, step-guided execution, context awareness, and multi-monitor support.
-
-**Target features:**
-- Action-first UI with quick action buttons + async AI-suggested actions on selection
-- Step-first responses enforced in system prompt (no intro, no fluff, numbered steps from line 1)
-- Context-aware entry via app detection (VS Code, Figma, Terminal) pre-suggesting relevant actions
-- Step progress tracking — highlight current step, checkmark completed, click to jump/replay
-- Conversation continuity — follow-up in same task context without re-explaining
-- "Try another way" — alternative steps when current approach fails
-- Inline copy buttons for commands and code snippets in guidance output
-- Response history — scroll back through previous guidance in the current session
-- Multi-monitor support — overlay opens on active monitor via cursor-based Rust detection
+Run `/gsd-new-milestone` to define the next milestone's goals, requirements, and roadmap.
 
 ## Requirements
 
@@ -46,9 +35,33 @@ Users complete tasks in unfamiliar software without Googling or getting stuck. I
 - [x] **INFRA-01**: All API calls proxied through Cloudflare Worker — API keys never shipped in app binary — v1.0
 - [x] **INFRA-02**: App operates as always-on background process with minimal resource consumption — v1.0
 
+### Validated (v2.0)
+
+- [x] **PLAT-01**: Invoking the overlay keyboard shortcut opens the panel on the monitor where the user's cursor is — v2.0
+- [x] **CTX-01**: App detects the name of the currently active application when the overlay is invoked — v2.0
+- [x] **CTX-03**: App detection is sourced from the OS (Rust layer) — must not rely on AI classification of screenshots — v2.0
+- [x] **SESS-01**: Follow-up queries resolved using structured task context — v2.0
+- [x] **SESS-02**: Previous guidance exchanges in the current session are scrollable above the current response — v2.0
+- [x] **SESS-03**: Session context resets when user submits a new unrelated intent — v2.0
+- [x] **TASK-01**: When guidance is generated, a task header displays summarizing the current task — v2.0
+- [x] **RESP-01**: All AI guidance responses begin with numbered steps on line 1 — no intro sentence, no preamble — v2.0
+- [x] **RESP-02**: Every code snippet or terminal command in guidance has a one-click copy button (current exchange) — v2.0
+- [x] **RESP-03**: Each step contains exactly one actionable instruction — v2.0
+- [x] **STEP-01**: Guidance steps are rendered as a checklist — current step highlighted, completed steps checkmarked — v2.0
+- [x] **STEP-02**: User can click any step to mark it complete or jump back to a previous step — v2.0
+- [x] **STEP-03**: Step progress resets when a new response is generated — v2.0
+- [x] **ACTN-01**: When the overlay is open with no active query, user sees quick action buttons (Fix, Explain, Optimize, Ask) — v2.0
+- [x] **ACTN-02**: After making a screen region selection, quick action buttons use the region screenshot — v2.0
+- [x] **ACTN-03**: After receiving guidance, user can press "Try another way" to get a different approach — v2.0
+- [x] **ACTN-04**: Fixed action buttons render instantly (<100ms) — v2.0
+
+### Deferred / Partial
+
+- [ ] **CTX-02**: AI-suggested quick action button labels reflect the active app context (e.g. "Debug error" in Terminal) — deferred from v2.0 Phase 11 (D-08); system prompt app injection works, button label personalization is future scope
+
 ### Active
 
-*(None — all v1 requirements validated. Next requirements defined at /gsd-new-milestone.)*
+*(None — all defined requirements validated or deferred. Next requirements defined at `/gsd-new-milestone`.)*
 
 ### Out of Scope
 
@@ -63,16 +76,14 @@ Users complete tasks in unfamiliar software without Googling or getting stuck. I
 
 - Inspired by [Clicky](https://github.com/farzaa/clicky) — a macOS Swift app that acts as an AI buddy next to your cursor. Clicky is Mac-only, voice-only, stateless, and points at things on screen.
 - AI Buddy extends this with: cross-platform support, multi-modal input, learning memory, and degrading guidance.
-- Clicky's architecture: menu bar app with NSPanel overlays, push-to-talk → AssemblyAI → Claude → ElevenLabs TTS, all proxied through Cloudflare Worker.
 - Key insight: users don't want to "learn Figma" — they want to "do this one thing." Task completion, not education.
-- The "accuracy" that matters is intent accuracy and flow accuracy, not UI precision. If the user completes the task, the AI is "accurate."
 
-**Current state (after Phase 10):**
+**Current state (after v2.0):**
 - Stack: Tauri v2 + SolidJS + Rust (src-tauri) + Cloudflare Worker (Hono)
-- Phases 8–10 executed and human-verified
-- Shipped (Phase 10): step-first AI responses enforced in system prompt; `parseSteps()` pure function; `StepChecklist` component with interactive toggles, inline command extraction, and "Copied!" feedback; `RawGuidanceText` fallback for clarifying questions; collapsible session history; session scroll fixed
-- Next: Phase 11 — Action-First UI (QuickActions component)
+- 11 phases complete across 2 milestones (v1.0 + v2.0)
+- Shipped (v2.0): multi-monitor overlay, app detection, session history, task header, step-first responses, parseSteps(), StepChecklist with copy buttons, QuickActions 2×2 grid, TryAnotherWay button, region-aware buttons
 - Deploy-time gates remaining: KV namespace ID in wrangler.toml, auto-updater endpoint + pubkey in tauri.conf.json (both documented with PRODUCTION REQUIRED banners)
+- Tech debt: SessionFeed.sessionHistory prop is dead code; RESP-02 copy buttons on current exchange only; CTX-02 dynamic button labels deferred
 
 ## Constraints
 
@@ -86,30 +97,25 @@ Users complete tasks in unfamiliar software without Googling or getting stuck. I
 
 | Decision | Rationale | Outcome |
 |----------|-----------|---------|
-| Tauri v2 over Electron | 10x lower memory footprint for always-on background app | ✓ Validated — idles at 10-30MB, well under Electron's 150-300MB |
-| Desktop over browser extension | Desktop app can see everything; browser extension limited to tabs | ✓ Validated — screen capture works across all apps, not just browser |
-| Desktop only, no mobile | Mobile OS sandboxing prevents screen observation across apps | ✓ Validated — iOS/Android confirmed non-viable for this mechanic |
-| Directional over pixel-perfect guidance | Intent accuracy > UI precision. Users need confidence + direction, not coordinates | ✓ Validated — directional steps sufficient; users complete tasks without exact coordinates |
-| Granular memory → derived profiles | Track specific knowledge gaps, derive high-level skill profiles from granular data | ✓ Validated — SQLite memory + `get_skill_profile` Rust command shipped and verified |
-| Task completion over education | Product is a guide, not a tutor. Learning is the side effect of doing | ✓ Validated — core product loop (intent → screenshot → guidance) is the entire UX |
-| Key-capture for PTT shortcut | Free-text Tauri accelerator format is not discoverable for non-technical users | ✓ Added in v1.0 — click-to-capture field with symbol display (⌘⇧V) replaces text input |
+| Tauri v2 over Electron | 10x lower memory footprint for always-on background app | ✓ Validated — idles at 10-30MB |
+| Desktop over browser extension | Desktop app can see everything; browser extension limited to tabs | ✓ Validated |
+| Desktop only, no mobile | Mobile OS sandboxing prevents screen observation across apps | ✓ Validated |
+| Directional over pixel-perfect guidance | Intent accuracy > UI precision | ✓ Validated |
+| Granular memory → derived profiles | Track specific knowledge gaps, derive high-level skill profiles | ✓ Validated — v1.0 |
+| Task completion over education | Product is a guide, not a tutor. Learning is the side effect of doing | ✓ Validated |
+| xcap Monitor API uses individual width()/height() methods | Not size() struct — avoids compile error on macOS | ✓ Applied — v1.0 |
+| capture_region x/y as i32 in IPC | Safe-cast to u32 after non-negative validation | ✓ Applied — v1.0 |
+| available_monitors() + cursor range check | Avoids macOS mixed-DPI bug (Tauri issue #7890) | ✓ Applied — v2.0 Phase 8 |
+| app_name only (not .title) from OS | Screen Recording permission not required; title not needed | ✓ Applied — v2.0 Phase 8 |
+| sessionHistory capped at 3 turns | Token budget control; text-only history (no screenshot re-sends) | ✓ Applied — v2.0 Phase 9 |
+| parseSteps() at onDone only | Avoids partial-step flicker during streaming | ✓ Applied — v2.0 Phase 10 |
+| setContentState("loading") synchronous before await | Satisfies ACTN-04 <100ms; disabled state propagates in same SolidJS tick | ✓ Applied — v2.0 Phase 11 |
+| buildTryAnotherPrompt strips suffix before re-appending | Prevents compound prompt growth on repeated "Try another way" taps | ✓ Applied — v2.0 Phase 11 |
+| QuickActions only in fresh session (sessionHistory.length === 0) | Empty state = no prior context; buttons not shown when history exists | ✓ Applied — v2.0 Phase 11 |
 
 ## Evolution
 
 This document evolves at phase transitions and milestone boundaries.
 
-**After each phase transition** (via `/gsd-transition`):
-1. Requirements invalidated? → Move to Out of Scope with reason
-2. Requirements validated? → Move to Validated with phase reference
-3. New requirements emerged? → Add to Active
-4. Decisions to log? → Add to Key Decisions
-5. "What This Is" still accurate? → Update if drifted
-
-**After each milestone** (via `/gsd-complete-milestone`):
-1. Full review of all sections
-2. Core Value check — still the right priority?
-3. Audit Out of Scope — reasons still valid?
-4. Update Context with current state
-
 ---
-*Last updated: 2026-04-13 — Phase 10 complete (step-tracking-response-quality)*
+*Last updated: 2026-04-13 after v2.0 milestone — Task-Native Experience*
