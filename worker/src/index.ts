@@ -13,7 +13,11 @@ type Bindings = {
   RATE_LIMIT: KVNamespace;
 };
 
-type App = { Bindings: Bindings };
+type Variables = {
+  tokenValue: string;
+};
+
+type App = { Bindings: Bindings; Variables: Variables };
 
 // ---------------------------------------------------------------------------
 // Rate limiting helper (D-10) — 60 req/min per token via Cloudflare KV
@@ -41,6 +45,39 @@ async function checkRateLimit(
   await kv.put(key, String(newCount), { expirationTtl: 60 });
 
   return { allowed: true, remaining: 60 - newCount };
+}
+
+// ---------------------------------------------------------------------------
+// Quota enforcement (INFRA-05) — 20 guidance queries / user / 24h rolling window
+//
+// KV key: quota:chat:${token}  (separate from rate limit keys rate:${token})
+// TTL: set ONLY on first write (expirationTtl: 86400) to preserve rolling window start.
+// Subsequent increments omit expirationTtl — KV preserves the original expiry.
+// TOCTOU caveat: same as checkRateLimit — acceptable for beta traffic.
+// ---------------------------------------------------------------------------
+
+async function checkQuota(
+  kv: KVNamespace,
+  token: string,
+): Promise<{ allowed: boolean; used: number; reset_in_seconds: number }> {
+  const key = `quota:chat:${token}`;
+  const raw = await kv.get(key);
+  const current = raw ? parseInt(raw, 10) : 0;
+
+  if (current >= 20) {
+    return { allowed: false, used: current, reset_in_seconds: 86400 };
+  }
+
+  const newCount = current + 1;
+  if (current === 0) {
+    // First request in window — start the 24h rolling clock
+    await kv.put(key, String(newCount), { expirationTtl: 86400 });
+  } else {
+    // Preserve existing TTL — do NOT pass expirationTtl
+    await kv.put(key, String(newCount));
+  }
+
+  return { allowed: true, used: newCount, reset_in_seconds: 0 };
 }
 
 // ---------------------------------------------------------------------------
@@ -124,6 +161,7 @@ app.use('*', async (c, next) => {
     // KV not available in local dev — skip rate limiting
   }
 
+  c.set('tokenValue', tokenValue);
   return next();
 });
 
@@ -148,6 +186,22 @@ app.post('/chat', async (c) => {
 
   if (!body.messages || !Array.isArray(body.messages)) {
     return c.json({ error: 'messages array is required' }, 400);
+  }
+
+  // Quota check — /chat only, 20 guidance queries/user/24h (INFRA-05, per D-1)
+  if (c.env.RATE_LIMIT) {
+    try {
+      const tokenValue = c.get('tokenValue');
+      const { allowed, reset_in_seconds } = await checkQuota(c.env.RATE_LIMIT, tokenValue);
+      if (!allowed) {
+        return c.json(
+          { error: 'quota_exceeded', quota: 20, reset_in_seconds },
+          { status: 429 },
+        );
+      }
+    } catch {
+      // KV unavailable in local dev — fail open, quota not enforced
+    }
   }
 
   // Proxy to Anthropic Messages API with SSE streaming

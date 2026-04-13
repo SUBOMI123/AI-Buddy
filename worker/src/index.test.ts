@@ -35,13 +35,22 @@ function createMockKV(initialStore: Record<string, string> = {}): KVNamespace {
 // Mock environment bindings
 // ---------------------------------------------------------------------------
 
-const VALID_TOKEN = '550e8400-e29b-41d4-a716-446655440000'; // 36 chars
+// Token UUID — the "installationId" portion of the signed token
+const TOKEN_UUID = '550e8400-e29b-41d4-a716-446655440000'; // 36 chars
+
+// Pre-computed HMAC-SHA256(TOKEN_UUID, 'test-hmac-secret') as hex
+// Computed with: crypto.createHmac('sha256', 'test-hmac-secret').update(TOKEN_UUID).digest('hex')
+const TOKEN_SIGNATURE = 'd117be8940129a8c38863e8ea916e5224a2c347d6b86d493a00edef81088e19e';
+
+// Full signed token in format <uuid>.<hex-signature>
+const VALID_TOKEN = `${TOKEN_UUID}.${TOKEN_SIGNATURE}`;
 
 function createEnv(kvOverride?: KVNamespace) {
   return {
     ANTHROPIC_API_KEY: 'test-anthropic-key',
     ASSEMBLYAI_API_KEY: 'test-assemblyai-key',
     ELEVENLABS_API_KEY: 'test-elevenlabs-key',
+    APP_HMAC_SECRET: 'test-hmac-secret',
     RATE_LIMIT: kvOverride ?? createMockKV(),
   };
 }
@@ -133,36 +142,52 @@ describe('POST /chat', () => {
     const body = (await res.json()) as Json;
     assert.equal(body.error, 'messages array is required');
   });
-});
 
-describe('POST /stt', () => {
-  it('returns 501 with valid token', async () => {
-    const res = await req('/stt', {
-      method: 'POST',
-      headers: { 'x-app-token': VALID_TOKEN },
-    });
-    assert.equal(res.status, 501);
+  it('returns 429 with quota_exceeded when daily limit is hit', async () => {
+    const kv = createMockKV({ [`quota:chat:${TOKEN_UUID}`]: '20' });
+    const env = createEnv(kv);
+
+    const res = await req(
+      '/chat',
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-app-token': VALID_TOKEN,
+        },
+        body: JSON.stringify({ messages: [{ role: 'user', content: 'hello' }] }),
+      },
+      env,
+    );
+
+    assert.equal(res.status, 429);
     const body = (await res.json()) as Json;
-    assert.equal(body.status, 'not_implemented');
+    assert.equal(body.error, 'quota_exceeded');
+    assert.equal(body.quota, 20);
+    assert.ok(typeof body.reset_in_seconds === 'number');
   });
 });
 
 describe('POST /tts', () => {
-  it('returns 501 with valid token', async () => {
+  it('returns 400 when text body is missing', async () => {
     const res = await req('/tts', {
       method: 'POST',
-      headers: { 'x-app-token': VALID_TOKEN },
+      headers: {
+        'Content-Type': 'application/json',
+        'x-app-token': VALID_TOKEN,
+      },
+      body: JSON.stringify({}),
     });
-    assert.equal(res.status, 501);
+    assert.equal(res.status, 400);
     const body = (await res.json()) as Json;
-    assert.equal(body.status, 'not_implemented');
+    assert.equal(body.error, 'text must be a non-empty string');
   });
 });
 
 describe('Rate limiting', () => {
   it('returns 429 when rate limit is exceeded', async () => {
     // Pre-seed the KV store with a count of 60 (limit reached)
-    const kv = createMockKV({ [`rate:${VALID_TOKEN}`]: '60' });
+    const kv = createMockKV({ [`rate:${TOKEN_UUID}`]: '60' });
     const env = createEnv(kv);
 
     const res = await req(
@@ -191,17 +216,21 @@ describe('Rate limiting', () => {
     const kv = createMockKV();
     const env = createEnv(kv);
 
-    // This will hit /stt (501) but auth + rate limit should pass
+    // Hit /chat with missing messages body — returns 400 via c.json() which
+    // preserves middleware-set headers (c.header). Avoids outbound Anthropic call.
     const res = await req(
-      '/stt',
+      '/chat',
       {
         method: 'POST',
-        headers: { 'x-app-token': VALID_TOKEN },
+        headers: {
+          'Content-Type': 'application/json',
+          'x-app-token': VALID_TOKEN,
+        },
+        body: JSON.stringify({}),
       },
       env,
     );
 
-    assert.equal(res.status, 501);
     const remaining = res.headers.get('X-RateLimit-Remaining');
     assert.ok(remaining !== null, 'X-RateLimit-Remaining header should be set');
     assert.equal(remaining, '59'); // first request, 60 - 1 = 59
