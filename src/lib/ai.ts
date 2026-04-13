@@ -40,11 +40,14 @@ export interface StreamGuidanceOptions {
   taskLabel?: string;     // For post-completion recording (D-01)
   // Phase 8: CTX-02 — active app context for prompt enrichment
   appContext?: string;
+  // Phase 9: SESS-01 — prior turns for multi-turn conversation (D-08)
+  // Caller is responsible for enforcing the 3-turn cap (D-09) before passing this array.
+  conversationHistory?: Array<{ role: "user" | "assistant"; content: string }>;
 }
 
 export async function streamGuidance(opts: StreamGuidanceOptions): Promise<void> {
   const { token, screenshot, userIntent, onToken, onError, onDone, signal } = opts;
-  const { tier = 1, memoryContext, appContext } = opts;
+  const { tier = 1, memoryContext, appContext, conversationHistory } = opts;
   const systemPrompt =
     SYSTEM_PROMPT +
     (TIER_SUFFIX[tier] ?? "") +
@@ -78,7 +81,13 @@ export async function streamGuidance(opts: StreamGuidanceOptions): Promise<void>
       },
       body: JSON.stringify({
         model: "claude-sonnet-4-20250514",
-        messages: [{ role: "user", content: userContent }],
+        messages: [
+          ...(conversationHistory ?? []).map((turn) => ({
+            role: turn.role,
+            content: turn.content,  // text-only for prior turns (D-08)
+          })),
+          { role: "user" as const, content: userContent },  // current turn with screenshot
+        ],
         system: systemPrompt,
         max_tokens: 4096,
       }),
