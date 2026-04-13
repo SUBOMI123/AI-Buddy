@@ -92,6 +92,7 @@ New for v2.0 (from research):
 | 260413-1x7 | Show AI-generated task summary in header instead of raw user query | 2026-04-13 |
 | 260413-2bu | Make current-step highlight visible — rgba(255,255,255,0.08) too subtle in dark mode | 2026-04-13 |
 | 260413-lmv | QuickActions UX: context label, sharper button labels, region indicator, input placeholder, tighter spacing | 2026-04-13 |
+| 260413-lua | QuickActions polish: aware label copy, hover scale+100ms, tighter gap, shorten Ask | 2026-04-13 |
 
 ### Pending Todos
 
