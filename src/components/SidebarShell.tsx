@@ -1,5 +1,5 @@
 import { createSignal, onMount, onCleanup, Show, For } from "solid-js";
-import { X, Settings } from "lucide-solid";
+import { X, Settings, Plus } from "lucide-solid";
 import { DragHandle } from "./DragHandle";
 import { SettingsScreen } from "./SettingsScreen";
 import { TextInput } from "./TextInput";
@@ -452,6 +452,12 @@ export function SidebarShell() {
     setTimeout(() => inputRef?.focus(), 0);
   };
 
+  const cleanLabel = (raw: string): string => {
+    let s = raw.trim().replace(/[?.]+$/, "");   // strip trailing ? or .
+    s = s.charAt(0).toUpperCase() + s.slice(1); // capitalize first word
+    return s.length > 40 ? s.slice(0, 40) + "\u2026" : s;
+  };
+
   return (
     <div
       class="sidebar-shell"
@@ -475,84 +481,129 @@ export function SidebarShell() {
 
       <DragHandle />
 
-      {/* Phase 5 D-06: Settings gear icon header row */}
-      <div
-        style={{
+      {/* Phase 5 D-06: Settings gear icon header row — shown only when no task is active */}
+      <Show when={lastIntent().length === 0}>
+        <div style={{
           display: "flex",
           "justify-content": "flex-end",
           "align-items": "center",
           padding: "var(--space-xs) var(--space-md)",
           "border-bottom": "1px solid var(--color-border)",
           "flex-shrink": "0",
-        }}
-      >
-        <button
-          onClick={() => setShowSettings(true)}
-          aria-label="Open skill profile and settings"
-          title="Skill profile"
-          style={{
-            border: "none",
-            background: "transparent",
-            color: "var(--color-text-secondary)",
-            cursor: "pointer",
-            "min-height": "44px",
-            "min-width": "44px",
-            display: "flex",
-            "align-items": "center",
-            "justify-content": "center",
-            padding: "0",
-          }}
-        >
-          <Settings size={14} />
-        </button>
-      </div>
+        }}>
+          <button
+            onClick={() => setShowSettings(true)}
+            aria-label="Open skill profile and settings"
+            title="Skill profile"
+            style={{
+              border: "none",
+              background: "transparent",
+              color: "var(--color-text-secondary)",
+              cursor: "pointer",
+              "min-height": "44px",
+              "min-width": "44px",
+              display: "flex",
+              "align-items": "center",
+              "justify-content": "center",
+              padding: "0",
+            }}
+          >
+            <Settings size={14} />
+          </button>
+        </div>
+      </Show>
 
       {/* Main content — hidden when settings open */}
       <Show when={!showSettings()}>
-      {/* Phase 9 TASK-01: Task header strip — shows when session is active (D-07) */}
+      {/* Phase 9 TASK-01 / 260413-1kn: Compact single-row task header — shows when session is active */}
       <Show when={lastIntent().length > 0}>
         <div
           aria-live="polite"
           style={{
             background: "var(--color-surface-secondary)",
             "border-bottom": "1px solid var(--color-border)",
-            padding: "var(--space-sm) var(--space-md)",
+            padding: "0 var(--space-md)",
             "flex-shrink": "0",
             display: "flex",
-            "flex-direction": "column",
+            "align-items": "center",
+            gap: "var(--space-xs)",
+            height: "38px",
+            "min-height": "38px",
           }}
         >
-          <p
+          {/* Cleaned task label — fills remaining space, truncates */}
+          <span
             style={{
               "font-size": "var(--font-size-label)",
-              "line-height": "var(--line-height-label)",
-              color: "var(--color-text-primary)",
-              margin: "0",
+              "font-weight": "500",
+              "line-height": "1",
+              color: "var(--color-text-secondary)",
               overflow: "hidden",
               "text-overflow": "ellipsis",
               "white-space": "nowrap",
+              flex: "1",
+              "min-width": "0",
             }}
           >
-            {lastIntent().length > 50 ? lastIntent().slice(0, 50) + "\u2026" : lastIntent()}
-          </p>
+            Working on: {cleanLabel(lastIntent())}
+          </span>
+
+          {/* + button — new task */}
           <button
             onClick={handleNewTask}
-            aria-label="Start a new task"
+            aria-label="New task"
+            title="New task"
             style={{
               border: "none",
               background: "transparent",
-              color: "var(--color-accent)",
-              "font-size": "var(--font-size-label)",
+              color: "var(--color-text-secondary)",
               cursor: "pointer",
-              padding: "0",
-              "text-decoration": "underline",
-              "min-height": "44px",
-              display: "inline-flex",
+              display: "flex",
               "align-items": "center",
-              "align-self": "flex-start",
+              "justify-content": "center",
+              padding: "0",
+              width: "28px",
+              height: "28px",
+              "flex-shrink": "0",
+              "border-radius": "var(--radius-sm)",
+            }}
+            onMouseEnter={(e) => {
+              (e.currentTarget as HTMLButtonElement).style.color = "var(--color-text-primary)";
+            }}
+            onMouseLeave={(e) => {
+              (e.currentTarget as HTMLButtonElement).style.color = "var(--color-text-secondary)";
             }}
           >
-            New task
+            <Plus size={14} />
+          </button>
+
+          {/* Gear icon — settings, same row */}
+          <button
+            onClick={() => setShowSettings(true)}
+            aria-label="Open skill profile and settings"
+            title="Skill profile"
+            style={{
+              border: "none",
+              background: "transparent",
+              color: "var(--color-text-secondary)",
+              cursor: "pointer",
+              display: "flex",
+              "align-items": "center",
+              "justify-content": "center",
+              padding: "0",
+              width: "28px",
+              height: "28px",
+              "flex-shrink": "0",
+              "border-radius": "var(--radius-sm)",
+            }}
+            onMouseEnter={(e) => {
+              (e.currentTarget as HTMLButtonElement).style.color = "var(--color-text-primary)";
+            }}
+            onMouseLeave={(e) => {
+              (e.currentTarget as HTMLButtonElement).style.color = "var(--color-text-secondary)";
+            }}
+          >
+            <Settings size={14} />
           </button>
         </div>
       </Show>
