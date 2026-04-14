@@ -1,8 +1,11 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN"
+  "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
     <key>NSMicrophoneUsageDescription</key>
     <string>AI Buddy uses your microphone for push-to-talk voice input. Audio is streamed to AssemblyAI for transcription and is not stored locally.</string>
+    <key>NSScreenCaptureUsageDescription</key>
+    <string>AI Buddy captures your screen to understand what you're working on and provide step-by-step guidance. Captures are sent to Claude (Anthropic) for analysis and are not stored.</string>
 </dict>
 </plist>
