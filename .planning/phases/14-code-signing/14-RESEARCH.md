@@ -462,22 +462,25 @@ None — no automated test files to create. All signing verification is manual b
 
 ---
 
-## Open Questions
+## Open Questions (RESOLVED)
 
 1. **Apple Developer Program enrollment status**
    - What we know: The plan requires it; certificate provisioning cannot proceed without it.
    - What's unclear: Whether the user is already enrolled or needs to complete the $99/yr enrollment first.
    - Recommendation: Wave 0 task should be "Confirm Apple Developer Program membership — if not enrolled, enroll now before proceeding." The rest of Phase 14 is blocked until this is confirmed.
+   - **RESOLVED:** Plan 14-02 Task 1 includes enrollment check as the first prerequisite step (human checkpoint). If not enrolled, enroll before proceeding. Plan handles both states.
 
 2. **Universal binary vs arm64-only for Phase 14**
    - What we know: The machine is arm64 (Apple Silicon). `cargo tauri build` defaults to native arch.
    - What's unclear: Whether Phase 14 should produce a universal binary (arm64 + x86_64) or arm64-only.
    - Recommendation: arm64-only is fine for Phase 14 (it's a beta run). Universal is Phase 16 distribution scope. The plan should note this explicitly so the user doesn't expect a universal DMG.
+   - **RESOLVED:** arm64-only for Phase 14 beta. Universal binary is Phase 16 distribution scope (Assumption A3).
 
 3. **Whether `cargo tauri build` auto-notarize is triggered by `APPLE_ID` + `APPLE_PASSWORD` or requires separate `notarytool` call**
    - What we know: Multiple community sources confirm Tauri auto-notarizes when `APPLE_ID`, `APPLE_PASSWORD`, `APPLE_TEAM_ID` are set. The Phase 14 plan includes both paths (auto via env vars + manual fallback). [CITED: v2.tauri.app/distribute/sign/macos/, dev.to/0xmassi]
    - What's unclear: The exact Tauri v2.10.x bundler behavior — whether notarization is fully integrated or still a post-build step in some configurations.
    - Recommendation: Plan for the env-var-driven auto path as primary; document the manual `notarytool submit` fallback. If auto-notarize fails, the manual fallback produces the same result.
+   - **RESOLVED:** Use env-var-driven `cargo tauri build` auto-notarize as primary path. Manual `xcrun notarytool submit` fallback documented in Plan 14-02 Task 3. Session env vars are allowed (evaporate after terminal session, never written to disk) — D-03 updated to reflect this.
 
 ---
 

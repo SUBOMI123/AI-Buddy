@@ -40,9 +40,9 @@ This satisfies SIGN-01, SIGN-02, SIGN-03, SIGN-04 with verifiable runtime eviden
 
 The plan should document the `security find-identity -v -p codesigning` command to verify the certificate is installed and extract the exact signing identity string (e.g., `"Developer ID Application: Your Name (TEAMID)"`).
 
-### Credentials — local Keychain profile (notarytool)
+### Credentials — Keychain profile for storage, session env vars for build
 
-**D-03:** Notarization credentials stored as a named Keychain profile using:
+**D-03:** Notarization credentials are stored in the macOS Keychain as a named profile (never written to disk as plaintext, never in config files):
 ```
 xcrun notarytool store-credentials "ai-buddy-notarize" \
   --apple-id "your@email.com" \
@@ -50,9 +50,9 @@ xcrun notarytool store-credentials "ai-buddy-notarize" \
   --password "xxxx-xxxx-xxxx-xxxx"  # app-specific password from appleid.apple.com
 ```
 
-The build script and plan reference the profile by name (`--keychain-profile "ai-buddy-notarize"`). No credentials in env vars, no credentials in config files. Profile lives in the user's Keychain only.
+For the `cargo tauri build` auto-notarize path, credentials are exported as **session-scoped shell env vars** (`APPLE_ID`, `APPLE_PASSWORD`, `APPLE_TEAM_ID`, `APPLE_SIGNING_IDENTITY`) in the terminal before running the build. These env vars evaporate when the terminal session closes — they are not written to disk, not in config files, and not committed. The Keychain profile serves as the durable credential store; env vars are the runtime injection mechanism.
 
-Phase 15 CI will use env vars instead (CI has no Keychain) — that's Phase 15's concern, not Phase 14's.
+This pattern is identical to what Phase 15 CI will use (same env var names, populated from GitHub Secrets instead of Keychain).
 
 ### Entitlements completion (SIGN-03)
 
