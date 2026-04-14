@@ -100,10 +100,11 @@ export function SidebarShell() {
   const [isSubscribed,   setIsSubscribed]   = createSignal(false);
   const [bannerDismissed, setBannerDismissed] = createSignal(false);
 
-  // Derived — show soft-limit warning (QUOT-08: ≤2 remaining, not subscribed, not dismissed)
+  // Derived — show soft-limit warning (QUOT-08: ≤2 remaining, not subscribed, not dismissed, not hard-limited)
   const showQuotaBanner = () =>
     !isSubscribed() &&
     !bannerDismissed() &&
+    !isQuotaExceeded() &&
     quotaRemaining() !== null &&
     quotaRemaining()! <= 2;
 
