@@ -18,6 +18,9 @@
     "global-shortcut:allow-unregister",
     "global-shortcut:allow-is-registered",
     "updater:default",
-    "opener:allow-open-url"
+    {
+      "identifier": "opener:allow-open-url",
+      "allow": [{ "url": "https://**" }]
+    }
   ]
 }
