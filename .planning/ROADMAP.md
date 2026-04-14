@@ -90,7 +90,11 @@ Plans:
   2. The app opens on a macOS machine with no internet connection after the first notarization check (stapled ticket works offline)
   3. Taking a screenshot via the app in a notarized signed build produces a real screenshot (not a blank image), confirming NSScreenCaptureUsageDescription is present
   4. A Windows user following the onboarding email can run the installer by clicking "More info → Run anyway" in the SmartScreen dialog
-**Plans**: TBD
+**Plans**: 3 plans
+Plans:
+- [ ] 14-01-PLAN.md — Fix entitlements.plist (3 missing JIT keys) + Info.plist (NSScreenCaptureUsageDescription) + tauri.conf.json signingIdentity slot
+- [ ] 14-02-PLAN.md — Provision Developer ID cert, store notarytool credentials, run sign+notarize+staple pipeline, verify Gatekeeper acceptance
+- [ ] 14-03-PLAN.md — Create docs/windows-beta-install.md SmartScreen click-through guide
 
 ### Phase 15: CI Pipeline & Auto-Updater
 **Goal**: A git tag push triggers a fully automated release that produces signed macOS DMGs, a Windows installer, and a latest.json; installed apps detect and apply updates without leaving the app
@@ -126,6 +130,6 @@ Plans:
 | 11. Action-First UI | v2.0 | 3/3 | Complete | 2026-04-13 |
 | 12. Worker Deploy | v3.0 | 3/3 | Complete   | 2026-04-13 |
 | 13. Quota & Monetization | v3.0 | 0/2 | Not started | — |
-| 14. Code Signing | v3.0 | 0/? | Not started | — |
+| 14. Code Signing | v3.0 | 0/3 | Not started | — |
 | 15. CI Pipeline & Auto-Updater | v3.0 | 0/? | Not started | — |
 | 16. Distribution | v3.0 | 0/? | Not started | — |
