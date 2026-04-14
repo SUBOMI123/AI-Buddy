@@ -108,7 +108,10 @@ const app = new Hono<App>();
 //                           Tauri production WebViews load content from the `tauri://` scheme,
 //                           not `http://`. Requests from Rust (non-browser) bypass CORS entirely;
 //                           this header is only needed for the WebView fetch calls.
-app.use('*', cors({ origin: ['http://localhost:1420', 'tauri://localhost'] }));
+app.use('*', cors({
+  origin: ['http://localhost:1420', 'tauri://localhost'],
+  exposeHeaders: ['X-Quota-Remaining', 'X-Quota-Limit'],
+}));
 
 // ---------------------------------------------------------------------------
 // Auth + rate-limit middleware (applied to all routes except /health, /stripe-webhook, /payment-success)
