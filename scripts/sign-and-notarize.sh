@@ -27,7 +27,7 @@ set -euo pipefail
 echo "==> Building, signing, and notarizing AI Buddy..."
 echo "    Identity: $APPLE_SIGNING_IDENTITY"
 echo "    Team ID:  $APPLE_TEAM_ID"
-echo "    Apple ID: $APPLE_ID"
+echo "    Apple ID: [set]"
 echo ""
 
 # Step 1: Build (Tauri auto-signs and auto-notarizes when APPLE_* vars are set)
@@ -35,11 +35,16 @@ echo "==> Running cargo tauri build..."
 cargo tauri build
 
 # Step 2: Find the DMG (architecture-specific filename)
-DMG_PATH=$(ls target/release/bundle/macos/*.dmg 2>/dev/null | head -1)
-if [ -z "$DMG_PATH" ]; then
+DMG_COUNT=$(ls target/release/bundle/macos/*.dmg 2>/dev/null | wc -l | tr -d ' ')
+if [ "$DMG_COUNT" -eq 0 ]; then
   echo "ERROR: No DMG found in target/release/bundle/macos/. Build may have failed."
   exit 1
+elif [ "$DMG_COUNT" -gt 1 ]; then
+  echo "ERROR: Multiple DMGs found — cannot determine which to staple. Clean build directory and retry:"
+  ls target/release/bundle/macos/*.dmg
+  exit 1
 fi
+DMG_PATH=$(ls target/release/bundle/macos/*.dmg)
 echo "==> Found DMG: $DMG_PATH"
 
 # Step 3: Staple the notarization ticket to the DMG for offline Gatekeeper (SIGN-02)
