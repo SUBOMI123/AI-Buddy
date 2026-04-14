@@ -61,7 +61,7 @@
     "macOS": {
       "infoPlist": "./Info.plist",
       "entitlements": "./entitlements.plist",
-      "signingIdentity": "Developer ID Application: PLACEHOLDER (TEAMID)"
+      "signingIdentity": "Developer ID Application: Oreski Group LLC (8Q87GSTTX3)"
     }
   },
   "plugins": {
