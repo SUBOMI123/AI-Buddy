@@ -11,11 +11,25 @@ mod window;
 use tauri::Manager;
 
 
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
-    tauri::Builder::default()
+    #[allow(unused_mut)]
+    let mut builder = tauri::Builder::default()
         .plugin(tauri_plugin_global_shortcut::Builder::new().build())
         .plugin(tauri_plugin_updater::Builder::new().build())
+        .plugin(tauri_plugin_opener::init());
+
+    // tauri-nspanel converts Tauri's NSWindow to NSPanel so the overlay can
+    // persist above other apps. NSWindow with ActivationPolicy::Accessory gets
+    // hidden by macOS when another app gains focus; NSPanel with
+    // hidesOnDeactivate=false bypasses this entirely.
+    #[cfg(target_os = "macos")]
+    {
+        builder = builder.plugin(tauri_nspanel::init());
+    }
+
+    builder
         .invoke_handler(tauri::generate_handler![
             window::cmd_toggle_overlay,
             permissions::check_screen_permission,
@@ -63,6 +77,17 @@ pub fn run() {
                     .map_err(|e| Box::new(std::io::Error::new(std::io::ErrorKind::Other, e.to_string())))?;
             } else {
                 eprintln!("[setup] WARNING: overlay window not found, skipping setup_overlay_window");
+            }
+
+            // Convert region-select NSWindow → NSPanel so it persists above other apps.
+            // Without this, ActivationPolicy::Accessory causes macOS to hide the window
+            // the moment any real app gains focus, making region select invisible/broken
+            // from VS Code, Finder, Notion, etc.
+            if let Some(region_select_win) = app.get_webview_window("region-select") {
+                window::setup_region_select_window(&region_select_win)
+                    .map_err(|e| Box::new(std::io::Error::new(std::io::ErrorKind::Other, e.to_string())))?;
+            } else {
+                eprintln!("[setup] WARNING: region-select window not found, skipping setup_region_select_window");
             }
 
             // Register global shortcut from preferences (per D-06)

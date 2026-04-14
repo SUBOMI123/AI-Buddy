@@ -36,6 +36,8 @@ import {
 } from "../lib/tauri";
 import { streamGuidance } from "../lib/ai";
 import { buildTryAnotherPrompt } from "../lib/quickActionPresets";
+import { QuotaBanner } from "./QuotaBanner";
+import { openUrl } from "@tauri-apps/plugin-opener";
 
 // D-08: "listening" added for PTT active state
 // Phase 4: "selecting" added for region selection in-progress state
@@ -90,6 +92,23 @@ export function SidebarShell() {
   const [currentStepIndex, setCurrentStepIndex] = createSignal<number>(0);
   // 260413-1x7: AI-generated task title from "Task: ..." line in response
   const [taskTitle, setTaskTitle] = createSignal<string>("");
+
+  // Phase 13: QUOT-05, QUOT-08 — quota state
+  const WORKER_URL = import.meta.env.VITE_WORKER_URL || "http://localhost:8787";
+  const [quotaRemaining, setQuotaRemaining] = createSignal<number | null>(null);
+  const [quotaLimit,     setQuotaLimit]     = createSignal<number>(20);
+  const [isSubscribed,   setIsSubscribed]   = createSignal(false);
+  const [bannerDismissed, setBannerDismissed] = createSignal(false);
+
+  // Derived — show soft-limit warning (QUOT-08: ≤2 remaining, not subscribed, not dismissed)
+  const showQuotaBanner = () =>
+    !isSubscribed() &&
+    !bannerDismissed() &&
+    quotaRemaining() !== null &&
+    quotaRemaining()! <= 2;
+
+  // Derived — quota exceeded hard-limit state
+  const isQuotaExceeded = () => errorMessage() === "quota_exceeded";
 
   let inputRef: HTMLInputElement | undefined;
   let unlistenOverlay: (() => void) | undefined;
@@ -236,6 +255,40 @@ export function SidebarShell() {
     });
   });
 
+  const handleUpgrade = async () => {
+    try {
+      const token = await getInstallationToken();
+      const uuid = token.split(".")[0];
+      const res = await fetch(`${WORKER_URL}/create-checkout`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "x-app-token": token },
+        body: JSON.stringify({ uuid }),
+      });
+      const data = await res.json() as { url?: string };
+      if (data.url) await openUrl(data.url);
+    } catch (err) {
+      console.error("Upgrade flow failed:", err);
+    }
+  };
+
+  const handleRefreshSubscription = async () => {
+    try {
+      const token = await getInstallationToken();
+      const res = await fetch(`${WORKER_URL}/refresh-subscription`, {
+        method: "POST",
+        headers: { "x-app-token": token },
+      });
+      const data = await res.json() as { status?: "active" | "free" };
+      if (data.status === "active") {
+        setIsSubscribed(true);
+        setBannerDismissed(false);
+        if (isQuotaExceeded()) setContentState("empty");
+      }
+    } catch (err) {
+      console.error("Refresh subscription failed:", err);
+    }
+  };
+
   const handlePermissionGranted = () => {
     setNeedsPermission(false);
     setPermissionDenied(false);
@@ -379,6 +432,11 @@ export function SidebarShell() {
           }
         }
         setStreamingText(accumulatedText);     // signal for UI display
+      },
+      onQuotaUpdate: (q) => {
+        setQuotaRemaining(q.remaining);
+        setQuotaLimit(q.limit);
+        setBannerDismissed(false);  // reset dismiss on new response
       },
       onError: (err) => {
         if (thisGen !== submitGen) return; // WR-01: discard stale error from superseded request
@@ -565,6 +623,18 @@ export function SidebarShell() {
           >
             {taskTitle() ? taskTitle() : `Working on: ${cleanLabel(lastIntent())}`}
           </span>
+
+          {/* Phase 13 QUOT-05: Quota badge — visible after first guidance response */}
+          <Show when={quotaRemaining() !== null && !isSubscribed()}>
+            <span style={{
+              "font-size": "11px",
+              color: "var(--color-text-muted, #666)",
+              "white-space": "nowrap",
+              "flex-shrink": "0",
+            }}>
+              {quotaRemaining()} / {quotaLimit()} left
+            </span>
+          </Show>
 
           {/* + button — new task */}
           <button
@@ -815,8 +885,69 @@ export function SidebarShell() {
           </Show>
         </Show>
 
-        {/* Error state (D-11) */}
-        <Show when={!needsPermission() && contentState() === "error"}>
+        {/* Phase 13: Quota exceeded state (PAY-02, PAY-05) — distinct from generic error */}
+        <Show when={!needsPermission() && contentState() === "error" && isQuotaExceeded()}>
+          <div
+            style={{
+              display: "flex",
+              "flex-direction": "column",
+              "align-items": "center",
+              "justify-content": "center",
+              gap: "var(--space-md)",
+              padding: "var(--space-md)",
+              "text-align": "center",
+              flex: "1",
+            }}
+          >
+            <p
+              style={{
+                "font-size": "var(--font-size-body)",
+                "line-height": "var(--line-height-body)",
+                color: "var(--color-text-primary)",
+              }}
+            >
+              You've used all your AI requests for today.
+            </p>
+            <button
+              onClick={handleUpgrade}
+              style={{
+                border: "none",
+                background: "var(--color-accent)",
+                color: "white",
+                "font-size": "var(--font-size-body)",
+                "font-weight": "600",
+                cursor: "pointer",
+                padding: "var(--space-sm) var(--space-md)",
+                "border-radius": "var(--radius-md)",
+                "min-height": "44px",
+                display: "flex",
+                "align-items": "center",
+              }}
+            >
+              Upgrade for unlimited access
+            </button>
+            <button
+              onClick={handleRefreshSubscription}
+              style={{
+                border: "1px solid var(--color-border)",
+                background: "transparent",
+                color: "var(--color-text-secondary)",
+                "font-size": "var(--font-size-label)",
+                cursor: "pointer",
+                padding: "var(--space-xs) var(--space-md)",
+                "border-radius": "var(--radius-md)",
+                "min-height": "44px",
+                display: "flex",
+                "align-items": "center",
+              }}
+            >
+              Already paid? Refresh Status
+            </button>
+          </div>
+        </Show>
+
+        {/* Error state (D-11) — generic errors only */}
+        <Show when={!needsPermission() && contentState() === "error" && !isQuotaExceeded()}>
           <div
             style={{
               display: "flex",
@@ -933,6 +1064,16 @@ export function SidebarShell() {
               {selectedRegion()!.width} × {selectedRegion()!.height}
             </div>
           </div>
+        </Show>
+
+        {/* Phase 13 QUOT-08: Soft-limit warning banner */}
+        <Show when={showQuotaBanner()}>
+          <QuotaBanner
+            remaining={quotaRemaining()!}
+            limit={quotaLimit()}
+            onUpgrade={handleUpgrade}
+            onDismiss={() => setBannerDismissed(true)}
+          />
         </Show>
 
         <TextInput

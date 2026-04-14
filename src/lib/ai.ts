@@ -54,6 +54,8 @@ export interface StreamGuidanceOptions {
   // Phase 9: SESS-01 — prior turns for multi-turn conversation (D-08)
   // Caller is responsible for enforcing the 3-turn cap (D-09) before passing this array.
   conversationHistory?: Array<{ role: "user" | "assistant"; content: string }>;
+  // Phase 13: QUOT-05 — quota header callback
+  onQuotaUpdate?: (q: { remaining: number; limit: number }) => void;
 }
 
 export async function streamGuidance(opts: StreamGuidanceOptions): Promise<void> {
@@ -113,13 +115,18 @@ export async function streamGuidance(opts: StreamGuidanceOptions): Promise<void>
   if (!response.ok) {
     // Attempt to read error body for richer diagnostics
     let detail = "";
+    let parsedBody: { error?: string } | null = null;
     try {
-      const body = await response.json() as { error?: string };
-      detail = body.error ? ` (${body.error})` : "";
+      parsedBody = await response.json() as { error?: string };
+      detail = parsedBody.error ? ` (${parsedBody.error})` : "";
     } catch { /* ignore parse failure */ }
 
     if (response.status === 429) {
-      onError(`Rate limit reached -- please wait a moment and try again.${detail}`);
+      if (parsedBody?.error === "quota_exceeded") {
+        onError("quota_exceeded");  // sentinel — SidebarShell shows Upgrade UI for this value
+      } else {
+        onError("Rate limit reached — please wait a moment and try again.");
+      }
     } else if (response.status === 401 || response.status === 403) {
       onError(`Authentication error -- check your app token.${detail}`);
     } else {
@@ -130,6 +137,16 @@ export async function streamGuidance(opts: StreamGuidanceOptions): Promise<void>
   if (!response.body) {
     onError("Couldn't reach AI -- check your connection.");
     return;
+  }
+
+  // Phase 13: QUOT-05 — update quota counter from response header
+  const quotaRemainingHeader = response.headers.get("X-Quota-Remaining");
+  const quotaLimitHeader     = response.headers.get("X-Quota-Limit");
+  if (quotaRemainingHeader !== null && opts.onQuotaUpdate) {
+    opts.onQuotaUpdate({
+      remaining: parseInt(quotaRemainingHeader, 10),
+      limit:     parseInt(quotaLimitHeader ?? "20", 10),
+    });
   }
 
   // Parse SSE stream (Pitfall 3: buffer partial lines)
