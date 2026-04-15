@@ -48,8 +48,8 @@ Take AI Buddy from working prototype to a real product that beta users can downl
 ### Distribution
 
 - [ ] **DIST-01**: First signed release published to GitHub Releases — macOS DMG (arm64 + x86_64) and Windows EXE available as direct download links
-- [ ] **DIST-02**: Beta install guide published — covers download, macOS Gatekeeper, Windows SmartScreen click-through, first launch, and how to send feedback
-- [ ] **DIST-03**: Feedback channel established (Discord server or email alias) — beta users have a structured way to report issues
+- [x] **DIST-02**: Beta install guide published — covers download, macOS Gatekeeper, Windows SmartScreen click-through, first launch, and how to send feedback
+- [x] **DIST-03**: Feedback channel established (Discord server or email alias) — beta users have a structured way to report issues
 
 ---
 
@@ -102,5 +102,5 @@ Take AI Buddy from working prototype to a real product that beta users can downl
 | UPDT-03 | Phase 15 | Pending |
 | UPDT-04 | Phase 15 | Pending |
 | DIST-01 | Phase 16 | Pending |
-| DIST-02 | Phase 16 | Pending |
-| DIST-03 | Phase 16 | Pending |
+| DIST-02 | Phase 16 | Complete |
+| DIST-03 | Phase 16 | Complete |

@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: v3.0
 milestone_name: — Ship
-status: complete
-stopped_at: Completed 15-ci-pipeline-auto-updater-15-03-PLAN.md
-last_updated: "2026-04-14T00:00:00.000Z"
+status: executing
+stopped_at: Completed 16-01-PLAN.md
+last_updated: "2026-04-15T03:09:03.133Z"
 last_activity: 2026-04-15
 progress:
   total_phases: 5
-  completed_phases: 2
-  total_plans: 11
-  completed_plans: 8
-  percent: 73
+  completed_phases: 3
+  total_plans: 13
+  completed_plans: 11
+  percent: 85
 ---
 
 # Project State
@@ -26,7 +26,7 @@ See: .planning/PROJECT.md (updated 2026-04-13)
 ## Current Position
 
 Phase: 14 (Code Signing) — EXECUTING
-Plan: 2 of 3
+Plan: 3 of 3
 Status: Ready to execute
 Last activity: 2026-04-15
 
@@ -45,6 +45,8 @@ Key carry-forwards into v3.0:
 - active-win-pos-rs app_name should be validated on clean macOS Sequoia install before building on top of it
 - [Phase 15-ci-pipeline-auto-updater]: process:allow-restart used (not allow-relaunch) — correct Tauri v2 process plugin permission name
 - [Phase 15-ci-pipeline-auto-updater]: Dedicated onMount block for checkForAppUpdates() keeps update logic isolated from WR-02 async permission/shortcut setup
+- [Phase 16-distribution]: Install guide links point to GitHub blob viewer (not raw Pages URL) so Markdown renders formatted
+- [Phase 16-distribution]: docs/.nojekyll placed inside docs/ folder (not repo root) per GitHub Pages requirement
 
 ### Quick Tasks Completed (v2.0)
 
@@ -70,6 +72,6 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-04-15T01:21:05.848Z
-Stopped at: Completed 15-ci-pipeline-auto-updater-15-01-PLAN.md
+Last session: 2026-04-15T03:09:03.130Z
+Stopped at: Completed 16-01-PLAN.md
 Resume: `/gsd-plan-phase 12` to plan Worker Deploy phase

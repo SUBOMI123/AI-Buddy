@@ -121,7 +121,7 @@ Plans:
   3. A beta user has a working channel (Discord or email) to report a bug and receive a response
 **Plans**: 2 plans
 Plans:
-- [ ] 16-01-PLAN.md — Create README.md, docs/macos-beta-install.md, docs/index.html, docs/.nojekyll
+- [x] 16-01-PLAN.md — Create README.md, docs/macos-beta-install.md, docs/index.html, docs/.nojekyll
 - [ ] 16-02-PLAN.md — Enable GitHub Pages in repo Settings (human gate) + verify site is live
 
 ---
@@ -139,4 +139,4 @@ Plans:
 | 13. Quota & Monetization | v3.0 | 0/2 | Not started | — |
 | 14. Code Signing | v3.0 | 3/3 | Complete   | 2026-04-14 |
 | 15. CI Pipeline & Auto-Updater | v3.0 | 1/3 | In Progress|  |
-| 16. Distribution | v3.0 | 0/2 | Not started | — |
+| 16. Distribution | v3.0 | 1/2 | In Progress|  |
