@@ -191,3 +191,13 @@ export async function getSkillProfile(): Promise<SkillProfile> {
 export async function getActiveApp(): Promise<string | null> {
   return invoke<string | null>("cmd_get_active_app");
 }
+
+/** Start PTT recording session from frontend (mic button hold). */
+export async function pttStart(): Promise<void> {
+  return invoke("cmd_ptt_start");
+}
+
+/** Stop PTT recording session from frontend (mic button release). */
+export async function pttStop(): Promise<void> {
+  return invoke("cmd_ptt_stop");
+}
