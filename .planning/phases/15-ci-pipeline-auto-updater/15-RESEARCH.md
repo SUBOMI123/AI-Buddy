@@ -747,22 +747,16 @@ jobs:
 
 ---
 
-## Open Questions
+## Open Questions (RESOLVED)
 
 1. **Does `WORKER_URL` use `env!()` (compile-time) or `std::env::var()` (runtime)?**
-   - What we know: `APP_HMAC_SECRET` uses `env!()` (confirmed from Phase 14 notes). `WORKER_URL` is in `.cargo/config.toml` alongside it.
-   - What's unclear: Whether `WORKER_URL` is also read via `env!()` or via `std::env::var()` at runtime from `.cargo/config.toml`.
-   - Recommendation: Planner should include a task to grep `preferences.rs` and all Rust source for `env!("WORKER_URL")` vs `std::env::var("WORKER_URL")`. If compile-time, must add to CI env block. If runtime, `.cargo/config.toml` already handles it for local builds; CI runner may or may not see it.
+   RESOLVED: Plan 15-02 hardcodes `WORKER_URL` in the CI `env:` block for the build step. This covers both cases — if it's `env!()` (compile-time), the env var is present; if it's `std::env::var()` (runtime), the running process sees it. No grep task needed; safe either way.
 
 2. **`KEYCHAIN_PASSWORD` secret — needs to be added to GitHub Secrets?**
-   - What we know: The keychain setup step requires `KEYCHAIN_PASSWORD`. It can be any random string — not an Apple credential. It does not need to match anything external.
-   - What's unclear: Whether the planner should include generating and storing this as a GitHub Secret, or whether a hardcoded string in the workflow is acceptable.
-   - Recommendation: Add a throwaway random value as `KEYCHAIN_PASSWORD` in GitHub Secrets. Avoids hardcoding. Planner should include this in the secrets setup task.
+   RESOLVED: Plan 15-01 Task 1 explicitly lists `KEYCHAIN_PASSWORD` in the 10-secret setup checklist. The user will generate a random string and store it as a GitHub Secret. Hardcoding in the workflow YAML is not acceptable — secrets manager is the right place.
 
 3. **Universal binary (`lipo`) — is it supported by tauri-action natively?**
-   - What we know: The tauri-action test workflow includes `universal-apple-darwin` as a target in its own matrix. This suggests `tauri-action` supports universal builds.
-   - What's unclear: Whether `cargo tauri build --target universal-apple-darwin` works correctly in this project's setup (some projects report issues with universal builds and native dependencies).
-   - Recommendation: Deferred per CONTEXT.md. Proceed with two separate DMGs (arm64 + x86_64). Revisit if users request single universal download link.
+   RESOLVED: Deferred per CONTEXT.md D-06. Proceeding with two separate DMGs (arm64 + x86_64). Universal binary revisited in v1.0 if users request a single download link.
 
 ---
 
