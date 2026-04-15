@@ -47,7 +47,7 @@ fn default_audio_cues_enabled() -> bool {
     true
 }
 fn default_tts_enabled() -> bool {
-    false
+    true
 }
 fn default_has_launched_before() -> bool {
     false

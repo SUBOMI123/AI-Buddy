@@ -54,6 +54,8 @@ pub fn run() {
             window::cmd_confirm_region,
             window::cmd_cancel_region,
             voice::tts::cmd_play_tts,
+            voice::ptt::cmd_ptt_start,
+            voice::ptt::cmd_ptt_stop,
             memory::cmd_prepare_guidance_context,
             memory::cmd_record_interaction,
             memory::cmd_get_memory_context,

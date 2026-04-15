@@ -439,6 +439,34 @@ pub async fn start_ptt_session(
     Ok(())
 }
 
+/// Tauri command: start PTT session from frontend (mic button hold-to-record).
+/// Reuses the same start_ptt_session pipeline as the keyboard shortcut handler.
+/// No-op if PTT is already active (IS_PTT_ACTIVE CAS guard inside start_ptt_session).
+#[tauri::command]
+pub async fn cmd_ptt_start(app: tauri::AppHandle) -> Result<(), String> {
+    if IS_PTT_ACTIVE.load(std::sync::atomic::Ordering::SeqCst) {
+        return Ok(()); // already recording
+    }
+    let worker_url = option_env!("WORKER_URL")
+        .unwrap_or("http://localhost:8787")
+        .to_string();
+    let app_token = crate::preferences::cmd_get_token(app.clone());
+    let prefs = crate::preferences::load_preferences(&app);
+    let audio_cues = prefs.audio_cues_enabled;
+    start_ptt_session(app, worker_url, app_token, audio_cues)
+        .await
+        .map_err(|e| e.to_string())
+}
+
+/// Tauri command: stop PTT session from frontend (mic button release).
+/// Reuses the same stop_ptt_session pipeline as the keyboard shortcut handler.
+#[tauri::command]
+pub fn cmd_ptt_stop(app: tauri::AppHandle) -> Result<(), String> {
+    let prefs = crate::preferences::load_preferences(&app);
+    stop_ptt_session(prefs.audio_cues_enabled);
+    Ok(())
+}
+
 /// Stop the current PTT session. Called on ShortcutState::Released.
 /// T-03-03: Signals WebSocket to send terminate message and close.
 pub fn stop_ptt_session(audio_cues_enabled: bool) {

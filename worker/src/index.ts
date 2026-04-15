@@ -102,14 +102,18 @@ async function isSubscribed(kv: KVNamespace, uuid: string): Promise<boolean> {
 
 const app = new Hono<App>();
 
-// CORS middleware — two origins are allowed:
+// CORS middleware — three origins are allowed:
 //   http://localhost:1420  — Vite dev server used during `cargo tauri dev`
-//   tauri://localhost      — Tauri custom URI scheme used in production builds on macOS/Windows.
-//                           Tauri production WebViews load content from the `tauri://` scheme,
-//                           not `http://`. Requests from Rust (non-browser) bypass CORS entirely;
-//                           this header is only needed for the WebView fetch calls.
+//   tauri://localhost      — macOS WKWebView production origin (Tauri custom URI scheme)
+//   http://tauri.localhost — Windows WebView2 production origin (uses http scheme, not tauri://)
+//
+// macOS and Windows use different WebView origins in production:
+//   macOS:   tauri://localhost  (WKWebView registers a custom URI handler)
+//   Windows: http://tauri.localhost  (WebView2 uses a localhost-style HTTP origin)
+// Requests from Rust (non-browser) bypass CORS entirely; these headers are only
+// needed for WebView fetch() calls made from the frontend.
 app.use('*', cors({
-  origin: ['http://localhost:1420', 'tauri://localhost'],
+  origin: ['http://localhost:1420', 'tauri://localhost', 'http://tauri.localhost'],
   exposeHeaders: ['X-Quota-Remaining', 'X-Quota-Limit'],
 }));
 
