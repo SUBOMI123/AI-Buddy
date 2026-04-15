@@ -16,7 +16,6 @@ tauri-build = { version = "2", features = [] }
 tauri = { version = "2", features = ["tray-icon", "macos-private-api"] }
 tauri-plugin-opener = "2"
 tauri-plugin-global-shortcut = "2"
-tauri-plugin-updater = "2"
 uuid = { version = "1", features = ["v4"] }
 xcap = "0.9"
 image = { version = "0.25", default-features = false, features = ["jpeg"] }
@@ -40,3 +39,14 @@ rusqlite = { version = "0.39", features = ["bundled"] }
 
 # Context Awareness — Phase 8 (CTX-01, CTX-03)
 active-win-pos-rs = "0.10"
+
+[target.'cfg(target_os = "macos")'.dependencies]
+objc = "0.2"
+window-vibrancy = "0.5"
+tauri-nspanel = { git = "https://github.com/ahkohd/tauri-nspanel", branch = "v2.1" }
+# objc2 / objc2-app-kit pinned to same versions as tauri-nspanel so they share
+# a single copy in the final binary and type identity is preserved.
+objc2 = "0.6"
+objc2-app-kit = { version = "0.3", features = ["NSEvent", "block2"] }
+objc2-foundation = { version = "0.3", features = ["NSGeometry"] }
+block2 = { version = "0.6", features = ["alloc"] }
