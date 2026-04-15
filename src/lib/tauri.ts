@@ -17,6 +17,11 @@ export async function getShortcut(): Promise<string> {
   return invoke<string>("cmd_get_shortcut");
 }
 
+/** Returns true only on the very first launch. Writes the marker so subsequent calls return false. */
+export async function isFirstLaunch(): Promise<boolean> {
+  return invoke<boolean>("cmd_is_first_launch");
+}
+
 export async function setShortcut(shortcut: string): Promise<string> {
   return invoke<string>("cmd_set_shortcut", { shortcut });
 }

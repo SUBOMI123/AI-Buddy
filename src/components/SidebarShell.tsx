@@ -32,6 +32,9 @@ import {
   recordInteraction,
   getMemoryContext,
   getActiveApp,
+  isFirstLaunch,
+  getShortcut,
+  toggleOverlay,
   type RegionCoords,
 } from "../lib/tauri";
 import { streamGuidance } from "../lib/ai";
@@ -94,6 +97,10 @@ export function SidebarShell() {
   // 260413-1x7: AI-generated task title from "Task: ..." line in response
   const [taskTitle, setTaskTitle] = createSignal<string>("");
 
+  // First launch onboarding hint
+  const [showOnboardingHint, setShowOnboardingHint] = createSignal(false);
+  const [onboardingShortcut, setOnboardingShortcut] = createSignal("⌘Shift+Space");
+
   // Phase 13: QUOT-05, QUOT-08 — quota state
   const WORKER_URL = import.meta.env.VITE_WORKER_URL || "http://localhost:8787";
   const [quotaRemaining, setQuotaRemaining] = createSignal<number | null>(null);
@@ -128,6 +135,42 @@ export function SidebarShell() {
 
   onMount(() => {
     checkForAppUpdates(); // fire-and-forget; D-02: check on every launch
+  });
+
+  onMount(() => {
+    // First launch: show overlay automatically and display onboarding shortcut hint.
+    // cmd_is_first_launch writes the marker on first call so subsequent launches return false.
+    (async () => {
+      try {
+        const firstLaunch = await isFirstLaunch();
+        if (firstLaunch) {
+          // Fetch the configured shortcut to display in the hint
+          try {
+            const raw = await getShortcut();
+            // Convert "CommandOrControl+Shift+Space" → "⌘⇧Space" for display
+            const display = raw
+              .replace(/CommandOrControl\+/g, "⌘")
+              .replace(/Command\+/g, "⌘")
+              .replace(/Ctrl\+/g, "⌃")
+              .replace(/Shift\+/g, "⇧")
+              .replace(/Alt\+/g, "⌥")
+              .replace(/Option\+/g, "⌥");
+            setOnboardingShortcut(display);
+          } catch {
+            // Keep default "⌘Shift+Space"
+          }
+          // Show the overlay (it starts hidden per tauri.conf.json)
+          try {
+            await toggleOverlay();
+          } catch {
+            // Overlay show failed — hint still shown if overlay becomes visible another way
+          }
+          setShowOnboardingHint(true);
+        }
+      } catch {
+        // First-launch check failed silently — not a blocking error
+      }
+    })();
   });
 
   onMount(() => {
@@ -562,6 +605,55 @@ export function SidebarShell() {
       `}</style>
 
       <DragHandle />
+
+      {/* First-launch onboarding hint — shown once, dismissed by user */}
+      <Show when={showOnboardingHint()}>
+        <div style={{
+          display: "flex",
+          "align-items": "center",
+          gap: "8px",
+          padding: "8px 12px",
+          background: "rgba(99, 102, 241, 0.12)",
+          "border-bottom": "1px solid rgba(99, 102, 241, 0.2)",
+          "flex-shrink": "0",
+        }}>
+          <span style={{
+            flex: "1",
+            "font-size": "12px",
+            "line-height": "1.4",
+            color: "var(--color-text-secondary)",
+          }}>
+            Press <kbd style={{
+              display: "inline-block",
+              padding: "1px 5px",
+              background: "rgba(99, 102, 241, 0.18)",
+              border: "1px solid rgba(99, 102, 241, 0.35)",
+              "border-radius": "4px",
+              "font-size": "11px",
+              "font-family": "var(--font-mono, monospace)",
+              "white-space": "nowrap",
+            }}>{onboardingShortcut()}</kbd> anytime to show or hide me.
+          </span>
+          <button
+            onClick={() => setShowOnboardingHint(false)}
+            aria-label="Dismiss onboarding hint"
+            title="Dismiss"
+            style={{
+              border: "none",
+              background: "transparent",
+              color: "var(--color-text-secondary)",
+              cursor: "pointer",
+              padding: "2px",
+              "flex-shrink": "0",
+              display: "flex",
+              "align-items": "center",
+              "justify-content": "center",
+            }}
+          >
+            <X size={12} />
+          </button>
+        </div>
+      </Show>
 
       {/* Phase 5 D-06: Settings gear icon header row — shown only when no task is active */}
       <Show when={lastIntent().length === 0}>

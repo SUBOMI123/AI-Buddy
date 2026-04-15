@@ -36,6 +36,7 @@ pub fn run() {
             window::cmd_toggle_overlay,
             permissions::check_screen_permission,
             permissions::request_screen_permission,
+            preferences::cmd_is_first_launch,
             preferences::cmd_get_shortcut,
             preferences::cmd_set_shortcut,
             preferences::cmd_get_token,

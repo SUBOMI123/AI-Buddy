@@ -35,6 +35,9 @@ pub struct Preferences {
     pub audio_cues_enabled: bool,
     #[serde(default = "default_tts_enabled")]
     pub tts_enabled: bool,
+    // First launch tracking — false on first read (field absent), true after first launch recorded
+    #[serde(default = "default_has_launched_before")]
+    pub has_launched_before: bool,
 }
 
 fn default_ptt_key() -> String {
@@ -44,6 +47,9 @@ fn default_audio_cues_enabled() -> bool {
     true
 }
 fn default_tts_enabled() -> bool {
+    false
+}
+fn default_has_launched_before() -> bool {
     false
 }
 
@@ -56,6 +62,7 @@ impl Default for Preferences {
             ptt_key: default_ptt_key(),
             audio_cues_enabled: default_audio_cues_enabled(),
             tts_enabled: default_tts_enabled(),
+            has_launched_before: default_has_launched_before(),
         }
     }
 }
@@ -99,6 +106,26 @@ pub fn save_preferences(app: &AppHandle, prefs: &Preferences) {
 /// Returns the installation token, generating one on first launch if needed.
 pub fn get_installation_token(app: &AppHandle) -> String {
     load_preferences(app).installation_token
+}
+
+/// Returns true the very first time it is called (ever) for this installation.
+/// Writes the "has_launched_before" marker so all subsequent calls return false.
+pub fn is_first_launch(app: &AppHandle) -> bool {
+    let mut prefs = load_preferences(app);
+    if prefs.has_launched_before {
+        return false;
+    }
+    prefs.has_launched_before = true;
+    save_preferences(app, &prefs);
+    true
+}
+
+/// Tauri command: returns true only on the very first launch of the app.
+/// The marker is written atomically on the first call, so subsequent calls
+/// (including across restarts) always return false.
+#[tauri::command]
+pub fn cmd_is_first_launch(app: AppHandle) -> bool {
+    is_first_launch(&app)
 }
 
 /// Tauri command: get current shortcut binding
