@@ -107,7 +107,7 @@ Plans:
   4. The user can install the update from within the app without opening a browser or downloading a file manually
 **Plans**: 3 plans
 Plans:
-- [ ] 15-01-PLAN.md — Ed25519 keypair generation (human gate) + re-add updater plugin to all four locations + wire in-app update check + fix docs placeholder
+- [x] 15-01-PLAN.md — Ed25519 keypair generation (human gate) + re-add updater plugin to all four locations + wire in-app update check + fix docs placeholder
 - [ ] 15-02-PLAN.md — Create .github/workflows/release.yml (three-job matrix: macOS arm64, macOS x86, Windows)
 - [ ] 15-03-PLAN.md — Trigger real CI release, verify artifacts + latest.json, confirm in-app update dialog
 
@@ -135,5 +135,5 @@ Plans:
 | 12. Worker Deploy | v3.0 | 3/3 | Complete   | 2026-04-13 |
 | 13. Quota & Monetization | v3.0 | 0/2 | Not started | — |
 | 14. Code Signing | v3.0 | 3/3 | Complete   | 2026-04-14 |
-| 15. CI Pipeline & Auto-Updater | v3.0 | 0/3 | Not started | — |
+| 15. CI Pipeline & Auto-Updater | v3.0 | 1/3 | In Progress|  |
 | 16. Distribution | v3.0 | 0/? | Not started | — |

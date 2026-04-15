@@ -36,12 +36,12 @@ Take AI Buddy from working prototype to a real product that beta users can downl
 - [ ] **SIGN-02**: macOS build is notarized and stapled — app opens on machines with no internet connection after first notarization check
 - [ ] **SIGN-03**: `Entitlements.plist` includes JIT entitlements required by Tauri's WebView (`allow-jit`, `allow-unsigned-executable-memory`, `allow-dyld-environment-variables`, `disable-library-validation`) — missing causes silent crash post-notarization
 - [ ] **SIGN-04**: `Info.plist` includes `NSScreenCaptureUsageDescription` — missing causes silent blank screenshots in signed builds
-- [ ] **SIGN-05**: Windows build produced for closed beta without code signing — onboarding email documents SmartScreen click-through ("More info → Run anyway")
+- [x] **SIGN-05**: Windows build produced for closed beta without code signing — onboarding email documents SmartScreen click-through ("More info → Run anyway")
 
 ### Auto-Updater
 
-- [ ] **UPDT-01**: Ed25519 signing keypair generated once — public key embedded in `tauri.conf.json`, private key stored in CI secrets and a password manager
-- [ ] **UPDT-02**: `tauri-plugin-updater` configured with production GitHub Releases endpoint (`latest.json`) — app checks for updates on launch
+- [x] **UPDT-01**: Ed25519 signing keypair generated once — public key embedded in `tauri.conf.json`, private key stored in CI secrets and a password manager
+- [x] **UPDT-02**: `tauri-plugin-updater` configured with production GitHub Releases endpoint (`latest.json`) — app checks for updates on launch
 - [ ] **UPDT-03**: In-app update dialog appears when a new version is available — user can install update without leaving the app
 - [ ] **UPDT-04**: GitHub Actions release workflow (`release.yml`) produces signed + notarized macOS DMGs and a Windows installer on git tag push, and publishes `latest.json` automatically via `tauri-action`
 
@@ -96,9 +96,9 @@ Take AI Buddy from working prototype to a real product that beta users can downl
 | SIGN-02 | Phase 14 | Pending |
 | SIGN-03 | Phase 14 | Pending |
 | SIGN-04 | Phase 14 | Pending |
-| SIGN-05 | Phase 14 | Pending |
-| UPDT-01 | Phase 15 | Pending |
-| UPDT-02 | Phase 15 | Pending |
+| SIGN-05 | Phase 14 | Complete |
+| UPDT-01 | Phase 15 | Complete |
+| UPDT-02 | Phase 15 | Complete |
 | UPDT-03 | Phase 15 | Pending |
 | UPDT-04 | Phase 15 | Pending |
 | DIST-01 | Phase 16 | Pending |
