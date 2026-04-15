@@ -65,6 +65,7 @@ Key carry-forwards into v3.0:
 | 260413-2bu | Make current-step highlight visible (--color-step-current) | 2026-04-13 |
 | 260413-lmv | QuickActions UX: context label, sharper labels, region indicator, placeholder, spacing | 2026-04-13 |
 | 260413-lua | QuickActions polish: aware label, selection indicator, hover scale, tighter gap, shorten Ask | 2026-04-13 |
+| 260414-vhw | Enable TTS by default + hold-to-record mic button in overlay UI | 2026-04-15 |
 
 ### Pending Todos
 
