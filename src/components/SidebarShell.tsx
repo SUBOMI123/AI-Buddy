@@ -38,6 +38,7 @@ import { streamGuidance } from "../lib/ai";
 import { buildTryAnotherPrompt } from "../lib/quickActionPresets";
 import { QuotaBanner } from "./QuotaBanner";
 import { openUrl } from "@tauri-apps/plugin-opener";
+import { checkForAppUpdates } from '../updater';
 
 // D-08: "listening" added for PTT active state
 // Phase 4: "selecting" added for region selection in-progress state
@@ -124,6 +125,10 @@ export function SidebarShell() {
   // WR-01: generation counter guards against double-submit races.
   // Each submitIntent call captures its own generation; stale callbacks are discarded.
   let submitGen = 0;
+
+  onMount(() => {
+    checkForAppUpdates(); // fire-and-forget; D-02: check on every launch
+  });
 
   onMount(() => {
     // WR-02: Use a cancelled flag + inline cleanups array so that if the component

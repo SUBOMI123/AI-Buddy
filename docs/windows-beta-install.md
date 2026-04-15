@@ -16,7 +16,7 @@ closed beta period.
 EV code signing, which is planned for v1.0 (see note at the bottom of this page).
 
 To protect yourself: only install AI Buddy from the **official GitHub Releases page**:
-`https://github.com/[your-github-org]/ai-buddy/releases`
+`https://github.com/SUBOMI123/AI-Buddy/releases`
 
 Do not install from any other source.
 
