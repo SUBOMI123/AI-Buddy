@@ -43,7 +43,7 @@
 
 - [x] **Phase 12: Worker Deploy** — KV namespace provisioned, Worker live in production with rate limiting enforced (completed 2026-04-13)
 - [ ] **Phase 13: Quota & Monetization** — Free tier limits enforced server-side, Stripe subscriptions wired, paid users bypass quotas
-- [ ] **Phase 14: Code Signing** — macOS signed + notarized, entitlements correct, Windows beta docs ready
+- [x] **Phase 14: Code Signing** — macOS signed + notarized, entitlements correct, Windows beta docs ready (completed 2026-04-14)
 - [ ] **Phase 15: CI Pipeline & Auto-Updater** — GitHub Actions release workflow produces signed builds, updater live
 - [ ] **Phase 16: Distribution** — First signed release published, install guide live, feedback channel open
 
@@ -92,9 +92,9 @@ Plans:
   4. A Windows user following the onboarding email can run the installer by clicking "More info → Run anyway" in the SmartScreen dialog
 **Plans**: 3 plans
 Plans:
-- [ ] 14-01-PLAN.md — Fix entitlements.plist (3 missing JIT keys) + Info.plist (NSScreenCaptureUsageDescription) + tauri.conf.json signingIdentity slot
-- [ ] 14-02-PLAN.md — Provision Developer ID cert, store notarytool credentials, run sign+notarize+staple pipeline, verify Gatekeeper acceptance
-- [ ] 14-03-PLAN.md — Create docs/windows-beta-install.md SmartScreen click-through guide
+- [x] 14-01-PLAN.md — Fix entitlements.plist (3 missing JIT keys) + Info.plist (NSScreenCaptureUsageDescription) + tauri.conf.json signingIdentity slot
+- [x] 14-02-PLAN.md — Provision Developer ID cert, store notarytool credentials, run sign+notarize+staple pipeline, verify Gatekeeper acceptance
+- [x] 14-03-PLAN.md — Create docs/windows-beta-install.md SmartScreen click-through guide
 
 ### Phase 15: CI Pipeline & Auto-Updater
 **Goal**: A git tag push triggers a fully automated release that produces signed macOS DMGs, a Windows installer, and a latest.json; installed apps detect and apply updates without leaving the app
@@ -105,7 +105,11 @@ Plans:
   2. The release workflow publishes a latest.json to GitHub Releases that the app's updater endpoint can resolve
   3. An installed app on launch detects that a newer version is available and shows an in-app update dialog
   4. The user can install the update from within the app without opening a browser or downloading a file manually
-**Plans**: TBD
+**Plans**: 3 plans
+Plans:
+- [ ] 15-01-PLAN.md — Ed25519 keypair generation (human gate) + re-add updater plugin to all four locations + wire in-app update check + fix docs placeholder
+- [ ] 15-02-PLAN.md — Create .github/workflows/release.yml (three-job matrix: macOS arm64, macOS x86, Windows)
+- [ ] 15-03-PLAN.md — Trigger real CI release, verify artifacts + latest.json, confirm in-app update dialog
 
 ### Phase 16: Distribution
 **Goal**: Beta users can discover, download, install, and provide feedback on AI Buddy through documented, working channels
@@ -130,6 +134,6 @@ Plans:
 | 11. Action-First UI | v2.0 | 3/3 | Complete | 2026-04-13 |
 | 12. Worker Deploy | v3.0 | 3/3 | Complete   | 2026-04-13 |
 | 13. Quota & Monetization | v3.0 | 0/2 | Not started | — |
-| 14. Code Signing | v3.0 | 0/3 | Not started | — |
-| 15. CI Pipeline & Auto-Updater | v3.0 | 0/? | Not started | — |
+| 14. Code Signing | v3.0 | 3/3 | Complete   | 2026-04-14 |
+| 15. CI Pipeline & Auto-Updater | v3.0 | 0/3 | Not started | — |
 | 16. Distribution | v3.0 | 0/? | Not started | — |
