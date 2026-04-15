@@ -147,14 +147,16 @@ export function SidebarShell() {
           // Fetch the configured shortcut to display in the hint
           try {
             const raw = await getShortcut();
-            // Convert "CommandOrControl+Shift+Space" → "⌘⇧Space" for display
+            // Convert "CommandOrControl+Shift+Space" → platform-aware display string.
+            // On macOS: CommandOrControl → ⌘. On Windows/Linux: CommandOrControl → Ctrl+.
+            const isMac = navigator.userAgent.toLowerCase().includes("mac");
             const display = raw
-              .replace(/CommandOrControl\+/g, "⌘")
-              .replace(/Command\+/g, "⌘")
-              .replace(/Ctrl\+/g, "⌃")
-              .replace(/Shift\+/g, "⇧")
-              .replace(/Alt\+/g, "⌥")
-              .replace(/Option\+/g, "⌥");
+              .replace(/CommandOrControl\+/g, isMac ? "⌘" : "Ctrl+")
+              .replace(/Command\+/g, isMac ? "⌘" : "Ctrl+")
+              .replace(/Ctrl\+/g, isMac ? "⌃" : "Ctrl+")
+              .replace(/Shift\+/g, isMac ? "⇧" : "Shift+")
+              .replace(/Alt\+/g, isMac ? "⌥" : "Alt+")
+              .replace(/Option\+/g, isMac ? "⌥" : "Alt+");
             setOnboardingShortcut(display);
           } catch {
             // Keep default "⌘Shift+Space"
