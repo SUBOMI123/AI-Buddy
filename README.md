@@ -5,17 +5,17 @@ any software — without Googling or getting stuck.
 
 <!-- screenshot: app-screenshot.png -->
 
-## Download — v0.1.1
+## Download
 
-Choose the right version for your Mac. If unsure, check **Apple menu → About This Mac → Chip**.
+Head to the **[latest release](https://github.com/SUBOMI123/AI-Buddy/releases/latest)** and pick the right file for your platform:
 
-| Platform | Architecture | Download |
-|----------|-------------|---------|
-| macOS | Apple Silicon (M1/M2/M3/M4) | [AI.Buddy_0.1.1_aarch64.dmg](https://github.com/SUBOMI123/AI-Buddy/releases/download/v0.1.1/AI.Buddy_0.1.1_aarch64.dmg) |
-| macOS | Intel | [AI.Buddy_0.1.1_x64.dmg](https://github.com/SUBOMI123/AI-Buddy/releases/download/v0.1.1/AI.Buddy_0.1.1_x64.dmg) |
-| Windows | x64 | [AI.Buddy_0.1.1_x64-setup.exe](https://github.com/SUBOMI123/AI-Buddy/releases/download/v0.1.1/AI.Buddy_0.1.1_x64-setup.exe) |
+| Platform | Architecture | File to download |
+|----------|-------------|-----------------|
+| macOS | Apple Silicon (M1/M2/M3/M4) | `AI.Buddy_*_aarch64.dmg` |
+| macOS | Intel | `AI.Buddy_*_x64.dmg` |
+| Windows | x64 | `AI.Buddy_*_x64-setup.exe` |
 
-<!-- Update filenames when version changes -->
+If unsure which Mac you have, check **Apple menu → About This Mac → Chip**.
 
 [All releases and release notes](https://github.com/SUBOMI123/AI-Buddy/releases)
 
