@@ -1,6 +1,36 @@
 use serde::Serialize;
 use tauri::{AppHandle, Emitter, Manager, WebviewWindow};
 
+#[cfg(target_os = "macos")]
+use tauri_nspanel::{tauri_panel, CollectionBehavior, StyleMask, WebviewWindowExt};
+
+// Declare all NSPanel subclasses in a single tauri_panel! block.
+// The macro imports ObjC types into the current module namespace — calling it
+// twice in the same module causes "defined multiple times" compile errors.
+//
+// AiBuddyOverlayPanel — the sidebar overlay.
+//   NonactivatingPanel style mask set at runtime so it never steals focus.
+//
+// AiBuddyRegionSelectPanel — the fullscreen selection overlay.
+//   can_become_key_window=true is REQUIRED so the WebView receives
+//   mouse-down/move/up events for drawing the selection rectangle.
+//   No NonactivatingPanel style mask (unlike the sidebar) — it MUST be key.
+#[cfg(target_os = "macos")]
+tauri_panel! {
+    panel!(AiBuddyOverlayPanel {
+        config: {
+            can_become_key_window: true,
+            is_floating_panel: true
+        }
+    })
+    panel!(AiBuddyRegionSelectPanel {
+        config: {
+            can_become_key_window: true,
+            is_floating_panel: true
+        }
+    })
+}
+
 #[derive(Serialize, Clone)]
 pub struct RegionCoords {
     pub x: u32,
@@ -15,7 +45,6 @@ pub struct RegionCoords {
 /// PLAT-01: overlay opens on the monitor where the cursor is, not always primary.
 pub fn toggle_overlay(app: &AppHandle, window: &WebviewWindow) -> tauri::Result<()> {
     let visible = window.is_visible().unwrap_or(false);
-    eprintln!("[toggle_overlay] is_visible={}", visible);
     if visible {
         window.hide()?;
         let _ = window.emit("overlay-hidden", ());
@@ -42,7 +71,6 @@ pub fn toggle_overlay(app: &AppHandle, window: &WebviewWindow) -> tauri::Result<
             .or_else(|| monitors.iter().find(|m| m.position().x == 0 && m.position().y == 0))
             .or_else(|| monitors.first());
 
-        eprintln!("[toggle_overlay] cursor={:?} monitors={}", cursor, monitors.len());
         let mut geometry: Option<(i32, i32, u32, u32)> = None;
         if let Some(monitor) = monitor {
             let pos = monitor.position();
@@ -51,8 +79,7 @@ pub fn toggle_overlay(app: &AppHandle, window: &WebviewWindow) -> tauri::Result<
             let window_width_logical = 300.0_f64;
             let menu_bar_height_logical: f64 = if cfg!(target_os = "macos") { 25.0 } else { 0.0 };
 
-            // FIX Pitfall 2: Use all-Physical units. Old code mixed Physical position + Logical size.
-            // On Retina (scale=2.0): logical 300 → physical 600. All math done in physical pixels.
+            // All units in physical pixels (Retina scale=2: logical 300 → physical 600).
             let window_width_physical = (window_width_logical * scale) as u32;
             let menu_bar_height_physical = (menu_bar_height_logical * scale) as i32;
             let height_physical = ((size.height as f64 - menu_bar_height_logical * scale) * 0.5) as u32;
@@ -60,22 +87,10 @@ pub fn toggle_overlay(app: &AppHandle, window: &WebviewWindow) -> tauri::Result<
             let x = pos.x + size.width as i32 - window_width_physical as i32;
             let y = pos.y + menu_bar_height_physical;
 
-            eprintln!("[toggle_overlay] monitor pos={:?} size={:?} scale={} → window x={} y={} w={} h={}", pos, size, scale, x, y, window_width_physical, height_physical);
-
-            // Capture geometry — applied on main thread below (AppKit requires it).
             geometry = Some((x, y, window_width_physical, height_physical));
-        } else {
-            eprintln!("[toggle_overlay] WARNING: no monitor found, showing without repositioning");
         }
 
-        // All AppKit operations must run on the main thread.
-        // orderFrontRegardless is the correct API for overlay apps on macOS Sonoma+:
-        // it brings the window to front at its level WITHOUT requiring app activation,
-        // so the user's current app keeps focus. activateIgnoringOtherApps steals
-        // focus and is wrong for a sidebar UX.
-        // Set position/size before entering main-thread block.
-        // Tauri's own methods handle thread dispatch internally and must NOT be
-        // called from within run_on_main_thread (risk of GCD deadlock on macOS).
+        // Position/size: Tauri methods handle their own thread dispatch.
         if let Some((x, y, w, h)) = geometry {
             let _ = window.set_position(tauri::Position::Physical(
                 tauri::PhysicalPosition::new(x, y),
@@ -83,69 +98,12 @@ pub fn toggle_overlay(app: &AppHandle, window: &WebviewWindow) -> tauri::Result<
             let _ = window.set_size(tauri::Size::Physical(
                 tauri::PhysicalSize::new(w, h),
             ));
-            eprintln!("[toggle_overlay] set_position/size called: x={} y={} w={} h={}", x, y, w, h);
         }
 
-        let window_main = window.clone();
-        window.run_on_main_thread(move || {
-            // Log actual position to verify it stuck
-            if let Ok(pos) = window_main.outer_position() {
-                eprintln!("[toggle_overlay] actual outer_position after set: {:?}", pos);
-            }
-
-            // show() only — do NOT call set_always_on_top here.
-            // set_always_on_top(true) maps to NSFloatingWindowLevel=3 and would
-            // RESET our level-25 if it fires after our setLevel:25 objc call.
-            let _ = window_main.show();
-
-            // Apply vibrancy AFTER show() — NSVisualEffectView requires an on-screen
-            // backing store. Calling it before show() is a silent no-op.
-            #[cfg(target_os = "macos")]
-            {
-                use window_vibrancy::{apply_vibrancy, NSVisualEffectMaterial};
-                let vibrancy_result = apply_vibrancy(&window_main, NSVisualEffectMaterial::Sidebar, None, Some(10.0));
-                eprintln!("[toggle_overlay] apply_vibrancy result: {:?}", vibrancy_result.is_ok());
-            }
-
-            // Raise to NSStatusWindowLevel (25) — above ALL normal app windows
-            // including VS Code, browsers, Finder, Notion etc.
-            // NSFloatingWindowLevel (3) is not sufficient: frontmost apps can
-            // override it. NSStatusWindowLevel sits above all normal app windows
-            // and is the correct level for overlay/HUD apps (Alfred, Raycast, etc.).
-            #[cfg(target_os = "macos")]
-            {
-                use objc::{msg_send, sel, sel_impl};
-                if let Ok(ns_window_ptr) = window_main.ns_window() {
-                    let ns_window = ns_window_ptr as *mut objc::runtime::Object;
-                    if !ns_window.is_null() {
-                        unsafe {
-                            // NSStatusWindowLevel = 25: above all normal app windows.
-                            let _: () = msg_send![ns_window, setLevel: 25_i64];
-                            let actual_level: i64 = msg_send![ns_window, level];
-                            eprintln!("[toggle_overlay] window level after setLevel:25 = {}", actual_level);
-
-                            // NSWindowCollectionBehavior flags (bitfield):
-                            //   CanJoinAllSpaces     = 1   — visible on every Space
-                            //   Stationary           = 16  — stays put when switching Spaces
-                            //   IgnoresCycle         = 64  — excluded from Exposé cycling
-                            //   FullScreenAuxiliary  = 256 — appears alongside full-screen apps
-                            // Total = 337
-                            let _: () = msg_send![ns_window, setCollectionBehavior: 337_u64];
-                            let actual_behavior: u64 = msg_send![ns_window, collectionBehavior];
-                            eprintln!("[toggle_overlay] collectionBehavior after set = {}", actual_behavior);
-
-                            // orderFrontRegardless: brings window to front without
-                            // activating the app (no focus steal).
-                            let _: () = msg_send![ns_window, orderFrontRegardless];
-                        }
-                        eprintln!("[toggle_overlay] orderFrontRegardless called");
-                    }
-                }
-            }
-
-            let _ = window_main.emit("overlay-shown", ());
-            eprintln!("[toggle_overlay] main-thread show done, is_visible={:?}", window_main.is_visible());
-        })?;
+        // show() dispatches to the main thread internally on macOS — no
+        // run_on_main_thread wrapper needed. Vibrancy is set once at startup.
+        window.show()?;
+        let _ = window.emit("overlay-shown", ());
     }
     Ok(())
 }
@@ -157,18 +115,40 @@ pub fn cmd_toggle_overlay(app: AppHandle, window: WebviewWindow) -> Result<(), S
 }
 
 /// Show the full-screen region-select overlay window.
-/// Positions to cover the primary monitor exactly before showing.
-/// Sets focus so Escape key events are received by the WebView. (D-10)
+///
+/// NSNonactivatingPanelMask (set in setup_region_select_window) is what makes
+/// this work on top of any app without activation. It is the same mask the
+/// overlay sidebar uses — clicks are delivered directly to the WKWebView
+/// regardless of which app is active or which window is key. No event monitors,
+/// no activateIgnoringOtherApps, no makeKeyWindow hacks required.
 #[tauri::command]
 pub async fn cmd_open_region_select(app: AppHandle) -> Result<(), String> {
     let win = app
         .get_webview_window("region-select")
         .ok_or_else(|| "region-select window not found".to_string())?;
 
-    // Size to cover primary monitor exactly (Pitfall 3: never use fixed pixel dims)
-    if let Ok(Some(monitor)) = win.primary_monitor() {
-        let pos = monitor.position();
-        let size = monitor.size();
+    // Position the overlay to cover the monitor containing the cursor.
+    let cursor = app.cursor_position().unwrap_or(tauri::PhysicalPosition::new(0.0, 0.0));
+    let monitors = app.available_monitors().unwrap_or_default();
+
+    let active_monitor = monitors.iter().find(|m| {
+        let pos = m.position();
+        let size = m.size();
+        let right = pos.x as f64 + size.width as f64;
+        let bottom = pos.y as f64 + size.height as f64;
+        cursor.x >= pos.x as f64
+            && cursor.x < right
+            && cursor.y >= pos.y as f64
+            && cursor.y < bottom
+    });
+
+    let monitor = active_monitor
+        .or_else(|| monitors.iter().find(|m| m.position().x == 0 && m.position().y == 0))
+        .or_else(|| monitors.first());
+
+    if let Some(m) = monitor {
+        let pos = m.position();
+        let size = m.size();
         let _ = win.set_position(tauri::Position::Physical(
             tauri::PhysicalPosition::new(pos.x, pos.y),
         ));
@@ -177,12 +157,10 @@ pub async fn cmd_open_region_select(app: AppHandle) -> Result<(), String> {
         ));
     }
 
-    win.show().map_err(|e| e.to_string())?;
-    win.set_focus().map_err(|e| e.to_string())?; // Pitfall 2: must set focus after show
-    Ok(())
+    win.show().map_err(|e| e.to_string())
 }
 
-/// Hide the region-select overlay window without destroying it. (Pitfall 5)
+/// Hide the region-select overlay window without destroying it.
 #[tauri::command]
 pub async fn cmd_close_region_select(app: AppHandle) -> Result<(), String> {
     let win = app
@@ -201,8 +179,7 @@ pub async fn cmd_confirm_region(
     width: u32,
     height: u32,
 ) -> Result<(), String> {
-    // WR-03: Reject zero-dimension regions before they reach xcap — a 0×0 crop can panic
-    // or produce a 0-byte buffer that causes base64/JPEG encode errors downstream.
+    // WR-03: Reject zero-dimension regions before they reach xcap.
     if width == 0 || height == 0 {
         return Err("Region dimensions must be greater than zero".to_string());
     }
@@ -223,26 +200,101 @@ pub async fn cmd_cancel_region(app: AppHandle) -> Result<(), String> {
         .map_err(|e| e.to_string())
 }
 
-/// Apply NSWindowLevel and NSWindowCollectionBehavior to the overlay window at app startup.
-/// macOS requires collection behavior to be registered at window creation time — before the
-/// user switches to a full-screen Space — so the window is admitted into those Spaces.
-/// This is a registration-only call: it does NOT show, focus, or present the window.
+/// Convert the region-select NSWindow → NSPanel at app startup.
+///
+/// Without this, the region-select window is a plain NSWindow. With
+/// ActivationPolicy::Accessory, macOS hides NSWindows the moment another app
+/// gains focus — so the selection overlay appears for a split second then
+/// vanishes (or never renders) when the user is in VS Code, Finder, etc.
+///
+/// NSPanel with hidesOnDeactivate=false bypasses this: the panel stays on
+/// screen above any foreground app. No NonactivatingPanel style mask here —
+/// the region-select window MUST become key window so its WebView receives
+/// mouse-down/move/up events for drawing the selection rectangle.
+pub fn setup_region_select_window(window: &WebviewWindow) -> tauri::Result<()> {
+    #[cfg(target_os = "macos")]
+    {
+        let window_clone = window.clone();
+        window.run_on_main_thread(move || {
+            match window_clone.to_panel::<AiBuddyRegionSelectPanel>() {
+                Ok(panel) => {
+                    // Same level as the overlay (NSStatusWindowLevel=25) so it floats
+                    // above all normal app windows.
+                    panel.set_level(25);
+
+                    // NSNonactivatingPanelMask — the same mask the overlay sidebar uses.
+                    // This is the key that makes clicks reach the WKWebView without
+                    // requiring the app to be active or the window to be key.
+                    // Without this mask, clicks try to activate the app first; on
+                    // macOS 14+ activateIgnoringOtherApps is a no-op, so the app stays
+                    // inactive, makeKeyWindow fails, and acceptsFirstMouse:NO swallows
+                    // the first click — mousedown never fires in JS.
+                    // With this mask, clicks are delivered directly to the WKWebView
+                    // view hierarchy regardless of app activation state.
+                    panel.set_style_mask(StyleMask::empty().nonactivating_panel().into());
+
+                    // CRITICAL: do not hide when another app gains focus.
+                    panel.set_hides_on_deactivate(false);
+
+                    // Visible on all Spaces + alongside full-screen apps.
+                    panel.set_collection_behavior(
+                        CollectionBehavior::new()
+                            .can_join_all_spaces()
+                            .full_screen_auxiliary()
+                            .into(),
+                    );
+                }
+                Err(e) => eprintln!("[setup_region_select_window] ERROR — to_panel failed: {:?}", e),
+            }
+        })?;
+    }
+    Ok(())
+}
+
+/// Convert the overlay NSWindow → NSPanel at app startup.
+///
+/// This is the architectural fix for the "invisible on other apps" bug.
+/// Root cause: Tauri creates NSWindow. With ActivationPolicy::Accessory, macOS
+/// hides NSWindow instances whenever another app gains focus — regardless of
+/// window level. NSPanel with isFloatingPanel=true + hidesOnDeactivate=false
+/// bypasses this: the panel persists on screen above any foreground app.
+///
+/// Must be called once at startup (on main thread via run_on_main_thread).
+/// Does NOT show or focus the window — that happens in toggle_overlay.
 pub fn setup_overlay_window(window: &WebviewWindow) -> tauri::Result<()> {
     #[cfg(target_os = "macos")]
     {
         let window_clone = window.clone();
         window.run_on_main_thread(move || {
-            use objc::{msg_send, sel, sel_impl};
-            if let Ok(ns_window_ptr) = window_clone.ns_window() {
-                let ns_window = ns_window_ptr as *mut objc::runtime::Object;
-                if !ns_window.is_null() {
-                    unsafe {
-                        let _: () = msg_send![ns_window, setLevel: 25_i64];
-                        eprintln!("[setup_overlay_window] setLevel:25 applied");
-                        let _: () = msg_send![ns_window, setCollectionBehavior: 337_u64];
-                        eprintln!("[setup_overlay_window] setCollectionBehavior:337 applied");
-                    }
+            match window_clone.to_panel::<AiBuddyOverlayPanel>() {
+                Ok(panel) => {
+                    // NSStatusWindowLevel = 25: above all normal app windows
+                    panel.set_level(25);
+
+                    // NSNonactivatingPanelMask: panel never steals focus from active app.
+                    panel.set_style_mask(StyleMask::empty().nonactivating_panel().into());
+
+                    // CRITICAL: do not hide when another app gains focus.
+                    // This is why is_visible=true but the window was invisible —
+                    // macOS was removing it from the screen whenever Notion/VS Code
+                    // became frontmost. NSPanel + hidesOnDeactivate=false prevents this.
+                    panel.set_hides_on_deactivate(false);
+
+                    // Visible on all Spaces + alongside full-screen apps
+                    panel.set_collection_behavior(
+                        CollectionBehavior::new()
+                            .can_join_all_spaces()
+                            .full_screen_auxiliary()
+                            .into(),
+                    );
+
+                    // Apply vibrancy once at startup — NSVisualEffectView persists
+                    // across show/hide cycles. Doing this on every show() adds ~30ms
+                    // of latency per toggle for no benefit.
+                    use window_vibrancy::{apply_vibrancy, NSVisualEffectMaterial};
+                    let _ = apply_vibrancy(&window_clone, NSVisualEffectMaterial::Sidebar, None, Some(10.0));
                 }
+                Err(e) => eprintln!("[setup_overlay_window] ERROR — to_panel failed: {:?}", e),
             }
         })?;
     }
