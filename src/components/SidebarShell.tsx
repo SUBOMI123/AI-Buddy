@@ -454,8 +454,9 @@ export function SidebarShell() {
     let token: string;
     try {
       token = await getInstallationToken();
-    } catch {
-      setErrorMessage("Couldn't reach AI -- check your connection.");
+    } catch (err) {
+      const errMsg = err instanceof Error ? err.message : String(err);
+      setErrorMessage(`Couldn't reach AI: ${errMsg}`);
       setContentState("error");
       return;
     }
