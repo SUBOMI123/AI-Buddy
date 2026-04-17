@@ -13,9 +13,16 @@ pub fn create_tray(app: &AppHandle) -> tauri::Result<()> {
 
     let menu = Menu::with_items(app, &[&show_hide, &separator, &preferences, &separator, &quit])?;
 
-    TrayIconBuilder::new()
+    let mut builder = TrayIconBuilder::new()
         .menu(&menu)
-        .tooltip("AI Buddy")
+        .tooltip("AI Buddy");
+
+    // Use the app's default window icon for the tray (configured in tauri.conf.json)
+    if let Some(icon) = app.default_window_icon() {
+        builder = builder.icon(icon.clone());
+    }
+
+    builder
         .on_menu_event(move |app, event| match event.id.as_ref() {
             "show_hide" => {
                 if let Some(window) = app.get_webview_window("overlay") {
