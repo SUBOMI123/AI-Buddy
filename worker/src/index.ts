@@ -9,7 +9,7 @@ import Stripe from 'stripe';
 type Bindings = {
   ANTHROPIC_API_KEY: string;
   ASSEMBLYAI_API_KEY: string;
-  ELEVENLABS_API_KEY: string;
+  OPENAI_API_KEY: string;
   APP_HMAC_SECRET: string;
   STRIPE_SECRET_KEY: string;
   STRIPE_WEBHOOK_SECRET: string;
@@ -390,7 +390,7 @@ app.post('/stt', async (c) => {
 // TTS proxy — streams ElevenLabs Turbo v2.5 MP3 audio (D-15, D-29)
 // Auth middleware applies globally (T-03-04 pattern covers /tts too)
 app.post('/tts', async (c) => {
-  let body: { text?: string; voice_id?: string };
+  let body: { text?: string };
   try {
     body = await c.req.json();
   } catch {
@@ -430,47 +430,42 @@ app.post('/tts', async (c) => {
     }
   }
 
-  // ElevenLabs voice ID — use "Rachel" (natural, clear instructional voice)
-  // voice_id: Xb7hH8MSUJpSbSDYk0k2 is ElevenLabs "Alice" — available on free tier
-  const voiceId = body.voice_id ?? 'Xb7hH8MSUJpSbSDYk0k2';
-  const elevenUrl = `https://api.elevenlabs.io/v1/text-to-speech/${voiceId}/stream`;
+  // OpenAI TTS — tts-1 model, nova voice (warm, clear instructional tone)
+  // Docs: https://platform.openai.com/docs/api-reference/audio/createSpeech
+  const openaiUrl = 'https://api.openai.com/v1/audio/speech';
 
-  let elevenResponse: Response;
+  let openaiResponse: Response;
   try {
-    elevenResponse = await fetch(elevenUrl, {
+    openaiResponse = await fetch(openaiUrl, {
       method: 'POST',
       headers: {
-        'xi-api-key': c.env.ELEVENLABS_API_KEY,
+        'Authorization': `Bearer ${c.env.OPENAI_API_KEY}`,
         'Content-Type': 'application/json',
-        Accept: 'audio/mpeg',
       },
       body: JSON.stringify({
-        text,
-        model_id: 'eleven_turbo_v2_5',
-        voice_settings: {
-          stability: 0.5,
-          similarity_boost: 0.75,
-        },
+        model: 'tts-1',
+        input: text,
+        voice: 'nova',
+        response_format: 'mp3',
       }),
     });
   } catch (err) {
-    console.error('ElevenLabs request failed:', err);
+    console.error('OpenAI TTS request failed:', err);
     return c.json({ error: 'TTS service unavailable' }, 503);
   }
 
-  if (!elevenResponse.ok) {
-    const errText = await elevenResponse.text();
-    console.error('ElevenLabs returned', elevenResponse.status, errText);
+  if (!openaiResponse.ok) {
+    const errText = await openaiResponse.text();
+    console.error('OpenAI TTS returned', openaiResponse.status, errText);
     return c.json({ error: 'TTS generation failed' }, 502);
   }
 
   // Stream MP3 audio back to caller
-  return new Response(elevenResponse.body, {
+  return new Response(openaiResponse.body, {
     status: 200,
     headers: {
       'Content-Type': 'audio/mpeg',
       'Cache-Control': 'no-cache',
-      'Transfer-Encoding': 'chunked',
     },
   });
 });

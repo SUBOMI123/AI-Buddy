@@ -1,6 +1,6 @@
 [package]
 name = "ai-buddy"
-version = "0.1.2"
+version = "0.1.3"
 description = "AI Buddy - Real-time software guidance"
 authors = ["you"]
 edition = "2021"

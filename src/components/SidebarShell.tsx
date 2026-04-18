@@ -1,5 +1,5 @@
 import { createSignal, onMount, onCleanup, Show, For } from "solid-js";
-import { X, Settings, Plus } from "lucide-solid";
+import { X, Settings, Plus, Volume2 } from "lucide-solid";
 import { DragHandle } from "./DragHandle";
 import { SettingsScreen } from "./SettingsScreen";
 import { TextInput } from "./TextInput";
@@ -98,6 +98,9 @@ export function SidebarShell() {
   const [currentStepIndex, setCurrentStepIndex] = createSignal<number>(0);
   // 260413-1x7: AI-generated task title from "Task: ..." line in response
   const [taskTitle, setTaskTitle] = createSignal<string>("");
+
+  // TTS error — set when auto-play fails, cleared on next submit
+  const [ttsError, setTtsError] = createSignal("");
 
   // First launch onboarding hint
   const [showOnboardingHint, setShowOnboardingHint] = createSignal(false);
@@ -384,8 +387,9 @@ export function SidebarShell() {
     setCurrentStepIndex(0);
     setTaskTitle(""); // 260413-1x7: reset AI title on new submission
 
-    // Clear STT error on new submission
+    // Clear STT error and TTS error on new submission
     setSttError("");
+    setTtsError("");
 
     // Abort any in-flight request (D-07: clear and replace)
     abortController?.abort();
@@ -515,9 +519,13 @@ export function SidebarShell() {
         // Phase 9 WR-02: transition to "done" — stable post-completion state that prevents
         // the degradation notice from appearing as a false positive on overlay re-open.
         setContentState("done");
-        // Auto-play full guidance on arrival if TTS enabled (D-12: silent fail)
+        // Auto-play full guidance on arrival if TTS enabled (D-12)
         if (ttsEnabled()) {
-          playTts(accumulatedText).catch(() => {});  // use local, not signal
+          setTtsError("");
+          playTts(accumulatedText).catch((err: unknown) => {
+            if (import.meta.env.DEV) console.error("TTS auto-play failed:", err);
+            setTtsError("Audio unavailable — check your ElevenLabs key is set in the worker.");
+          });
         }
         // Phase 5: Record interaction fire-and-forget (D-01)
         if (ctx.taskLabel) {
@@ -988,6 +996,47 @@ export function SidebarShell() {
                 />
               )
             }
+            {/* TTS: Read aloud button + error shown after guidance lands */}
+            <Show when={ttsEnabled()}>
+              <div style={{ display: "flex", "align-items": "center", gap: "var(--space-sm)", "padding-top": "var(--space-xs)" }}>
+                <button
+                  onClick={() => {
+                    const text = currentExchange()?.guidance ?? "";
+                    if (!text) return;
+                    setTtsError("");
+                    playTts(text).catch((err: unknown) => {
+                      if (import.meta.env.DEV) console.error("TTS play failed:", err);
+                      setTtsError("Audio unavailable — check ElevenLabs key in the worker.");
+                    });
+                  }}
+                  title="Read guidance aloud"
+                  aria-label="Read guidance aloud"
+                  style={{
+                    display: "flex",
+                    "align-items": "center",
+                    gap: "var(--space-xs)",
+                    border: "none",
+                    background: "transparent",
+                    cursor: "pointer",
+                    padding: "var(--space-xs)",
+                    color: "var(--color-text-secondary)",
+                    "font-size": "var(--font-size-label)",
+                    "border-radius": "var(--radius-sm)",
+                    transition: "color var(--transition-fast)",
+                  }}
+                  onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.color = "var(--color-accent)"; }}
+                  onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.color = "var(--color-text-secondary)"; }}
+                >
+                  <Volume2 size={14} />
+                  Read aloud
+                </button>
+                <Show when={ttsError().length > 0}>
+                  <p style={{ margin: "0", "font-size": "var(--font-size-label)", color: "var(--color-error, #ef4444)" }}>
+                    {ttsError()}
+                  </p>
+                </Show>
+              </div>
+            </Show>
             <TryAnotherWay onRetry={handleTryAnotherWay} />
           </Show>
         </Show>
@@ -1239,17 +1288,19 @@ export function SidebarShell() {
               <path d="M12 1a4 4 0 0 1 4 4v7a4 4 0 0 1-8 0V5a4 4 0 0 1 4-4zm0 2a2 2 0 0 0-2 2v7a2 2 0 0 0 4 0V5a2 2 0 0 0-2-2zm-1 15.93V21h2v-2.07A8.001 8.001 0 0 0 20 11h-2a6 6 0 0 1-12 0H4a8.001 8.001 0 0 0 7 7.93z"/>
             </svg>
           </button>
-          <TextInput
-            value={inputValue}
-            setValue={setInputValue}
-            onSubmit={handleSubmit}
-            disabled={needsPermission()}
-            listening={isListening()}
-            sttError={sttError()}
-            ref={(el) => { inputRef = el; }}
-            onRegionSelect={handleRegionSelect}
-            regionActive={selectedRegion() !== null}
-          />
+          <div style={{ flex: "1", "min-width": "0" }}>
+            <TextInput
+              value={inputValue}
+              setValue={setInputValue}
+              onSubmit={handleSubmit}
+              disabled={needsPermission()}
+              listening={isListening()}
+              sttError={sttError()}
+              ref={(el) => { inputRef = el; }}
+              onRegionSelect={handleRegionSelect}
+              regionActive={selectedRegion() !== null}
+            />
+          </div>
         </div>
       </div>
       </Show>
