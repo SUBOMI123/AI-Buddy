@@ -11,6 +11,7 @@ interface TextInputProps {
   ref?: (el: HTMLInputElement) => void;
   onRegionSelect?: () => void;  // called when Crop button is clicked (D-01)
   regionActive?: boolean;       // true when a region is locked in (drives icon color)
+  hideSend?: boolean;           // hide internal send button when send is rendered externally
 }
 
 export function TextInput(props: TextInputProps) {
@@ -64,10 +65,8 @@ export function TextInput(props: TextInputProps) {
         style={{
           display: "flex",
           "align-items": "center",
-          gap: "var(--space-sm)",
           background: "var(--color-surface-secondary)",
           "border-radius": "var(--radius-md)",
-          padding: "var(--space-sm) var(--space-md)",
           "min-height": "44px",
           opacity: props.disabled ? "0.5" : "1",
           "pointer-events": props.disabled ? "none" : "auto",
@@ -83,6 +82,7 @@ export function TextInput(props: TextInputProps) {
             style={{
               color: "var(--color-accent)",
               "flex-shrink": "0",
+              "margin-left": "var(--space-md)",
               animation: "none",
             }}
             aria-label="Listening..."
@@ -99,6 +99,7 @@ export function TextInput(props: TextInputProps) {
           disabled={props.disabled}
           style={{
             flex: "1",
+            "min-width": "0",
             border: "none",
             outline: "none",
             background: "transparent",
@@ -107,6 +108,7 @@ export function TextInput(props: TextInputProps) {
             "font-weight": "var(--font-weight-regular)",
             "line-height": "var(--line-height-body)",
             "font-family": "inherit",
+            padding: "var(--space-sm) var(--space-xs) var(--space-sm) var(--space-md)",
           }}
         />
 
@@ -140,26 +142,28 @@ export function TextInput(props: TextInputProps) {
           </button>
         )}
 
-        <button
-          onClick={handleSubmit}
-          disabled={props.disabled || !props.value().trim()}
-          style={{
-            display: "flex",
-            "align-items": "center",
-            "justify-content": "center",
-            border: "none",
-            background: "transparent",
-            cursor: props.value().trim() ? "pointer" : "default",
-            padding: "var(--space-xs)",
-            color: props.value().trim() ? "var(--color-accent)" : "var(--color-text-secondary)",
-            opacity: props.value().trim() ? "1" : "0.5",
-            transition: "color var(--transition-fast), opacity var(--transition-fast)",
-            "flex-shrink": "0",
-          }}
-          aria-label="Send message"
-        >
-          <Send size={24} />
-        </button>
+        {!props.hideSend && (
+          <button
+            onClick={handleSubmit}
+            disabled={props.disabled || !props.value().trim()}
+            style={{
+              display: "flex",
+              "align-items": "center",
+              "justify-content": "center",
+              border: "none",
+              background: "transparent",
+              cursor: props.value().trim() ? "pointer" : "default",
+              padding: "var(--space-sm) var(--space-md) var(--space-sm) var(--space-xs)",
+              color: props.value().trim() ? "var(--color-accent)" : "var(--color-text-secondary)",
+              opacity: props.value().trim() ? "1" : "0.5",
+              transition: "color var(--transition-fast), opacity var(--transition-fast)",
+              "flex-shrink": "0",
+            }}
+            aria-label="Send message"
+          >
+            <Send size={24} />
+          </button>
+        )}
       </div>
     </div>
   );

@@ -1,5 +1,5 @@
 import { createSignal, onMount, onCleanup, Show, For } from "solid-js";
-import { X, Settings, Plus, Volume2 } from "lucide-solid";
+import { X, Settings, Plus, Volume2, Crop, Send } from "lucide-solid";
 import { DragHandle } from "./DragHandle";
 import { SettingsScreen } from "./SettingsScreen";
 import { TextInput } from "./TextInput";
@@ -1232,9 +1232,9 @@ export function SidebarShell() {
           />
         </Show>
 
-        {/* Input row: mic button + text input with its own send button */}
+        {/* Input row: [mic] [crop] [input + send] */}
         <div style={{ display: "flex", gap: "var(--space-xs)", "align-items": "flex-end" }}>
-          {/* Mic button — hold to record, same PTT pipeline as keyboard shortcut */}
+          {/* Mic button — hold to record */}
           <button
             aria-label={isListening() ? "Recording... release to stop" : "Hold to record"}
             title="Hold to record"
@@ -1283,12 +1283,44 @@ export function SidebarShell() {
               "align-self": "flex-end",
             }}
           >
-            {/* Inline mic SVG — no external dependency */}
             <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
               <path d="M12 1a4 4 0 0 1 4 4v7a4 4 0 0 1-8 0V5a4 4 0 0 1 4-4zm0 2a2 2 0 0 0-2 2v7a2 2 0 0 0 4 0V5a2 2 0 0 0-2-2zm-1 15.93V21h2v-2.07A8.001 8.001 0 0 0 20 11h-2a6 6 0 0 1-12 0H4a8.001 8.001 0 0 0 7 7.93z"/>
             </svg>
           </button>
-          <div style={{ flex: "1", "min-width": "0" }}>
+
+          {/* Crop button — moved out of TextInput so send button always has room */}
+          <button
+            onClick={handleRegionSelect}
+            title="Select screen region"
+            aria-label="Select screen region"
+            aria-pressed={selectedRegion() !== null ? "true" : "false"}
+            disabled={needsPermission()}
+            style={{
+              border: "none",
+              background: "var(--color-surface-secondary)",
+              cursor: needsPermission() ? "not-allowed" : "pointer",
+              "border-radius": "var(--radius-md)",
+              width: "36px",
+              height: "36px",
+              "min-width": "36px",
+              "flex-shrink": "0",
+              display: "flex",
+              "align-items": "center",
+              "justify-content": "center",
+              padding: "0",
+              color: selectedRegion() !== null
+                ? "var(--color-accent)"
+                : "var(--color-text-secondary)",
+              opacity: needsPermission() ? "0.4" : "1",
+              transition: "color var(--transition-fast)",
+              "align-self": "flex-end",
+            }}
+          >
+            <Crop size={16} />
+          </button>
+
+          {/* TextInput — send button is inside the input container */}
+          <div style={{ flex: "1", "min-width": "0", overflow: "hidden" }}>
             <TextInput
               value={inputValue}
               setValue={setInputValue}
@@ -1297,8 +1329,6 @@ export function SidebarShell() {
               listening={isListening()}
               sttError={sttError()}
               ref={(el) => { inputRef = el; }}
-              onRegionSelect={handleRegionSelect}
-              regionActive={selectedRegion() !== null}
             />
           </div>
         </div>

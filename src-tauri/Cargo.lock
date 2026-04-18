@@ -34,7 +34,7 @@ dependencies = [
 
 [[package]]
 name = "ai-buddy"
-version = "0.1.0"
+version = "0.1.4"
 dependencies = [
  "active-win-pos-rs",
  "base64 0.22.1",
