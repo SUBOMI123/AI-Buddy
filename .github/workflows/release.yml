@@ -57,6 +57,7 @@ jobs:
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
           APP_HMAC_SECRET: ${{ secrets.APP_HMAC_SECRET }}
           WORKER_URL: "https://ai-buddy-proxy.subomi-bashorun.workers.dev"
+          VITE_WORKER_URL: "https://ai-buddy-proxy.subomi-bashorun.workers.dev"
           TAURI_BUNDLER_DMG_IGNORE_CI: "false"
         with:
           tagName: v__VERSION__
@@ -114,6 +115,7 @@ jobs:
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
           APP_HMAC_SECRET: ${{ secrets.APP_HMAC_SECRET }}
           WORKER_URL: "https://ai-buddy-proxy.subomi-bashorun.workers.dev"
+          VITE_WORKER_URL: "https://ai-buddy-proxy.subomi-bashorun.workers.dev"
           TAURI_BUNDLER_DMG_IGNORE_CI: "false"
         with:
           tagName: v__VERSION__
@@ -147,6 +149,7 @@ jobs:
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
           APP_HMAC_SECRET: ${{ secrets.APP_HMAC_SECRET }}
           WORKER_URL: "https://ai-buddy-proxy.subomi-bashorun.workers.dev"
+          VITE_WORKER_URL: "https://ai-buddy-proxy.subomi-bashorun.workers.dev"
         with:
           tagName: v__VERSION__
           releaseName: 'AI Buddy v__VERSION__'
