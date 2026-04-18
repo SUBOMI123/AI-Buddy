@@ -1,5 +1,5 @@
 import { createSignal, onMount, onCleanup, Show, For } from "solid-js";
-import { X, Settings, Plus, Volume2, Crop, Send } from "lucide-solid";
+import { X, Settings, Plus, Volume2, Square, Crop, Send } from "lucide-solid";
 import { DragHandle } from "./DragHandle";
 import { SettingsScreen } from "./SettingsScreen";
 import { TextInput } from "./TextInput";
@@ -24,6 +24,9 @@ import {
   getTtsEnabled,
   setTtsEnabled as setTtsEnabledIpc,
   playTts,
+  stopTts,
+  onTtsStarted,
+  onTtsDone,
   openRegionSelect,
   captureRegion,
   onRegionSelected,
@@ -101,6 +104,9 @@ export function SidebarShell() {
 
   // TTS error — set when auto-play fails, cleared on next submit
   const [ttsError, setTtsError] = createSignal("");
+  // TTS button states: loading = network fetch in progress, playing = audio playing
+  const [isTtsLoading, setIsTtsLoading] = createSignal(false);
+  const [isTtsPlaying, setIsTtsPlaying] = createSignal(false);
 
   // First launch onboarding hint
   const [showOnboardingHint, setShowOnboardingHint] = createSignal(false);
@@ -302,6 +308,21 @@ export function SidebarShell() {
       if (cancelled) { ulRegionCancelled(); return; }
       unlistenRegionCancelled = ulRegionCancelled;
       cleanups.push(ulRegionCancelled);
+
+      // TTS lifecycle events — update button state so user gets clear feedback
+      const ulTtsStarted = await onTtsStarted(() => {
+        setIsTtsLoading(false);
+        setIsTtsPlaying(true);
+      });
+      if (cancelled) { ulTtsStarted(); return; }
+      cleanups.push(ulTtsStarted);
+
+      const ulTtsDone = await onTtsDone(() => {
+        setIsTtsLoading(false);
+        setIsTtsPlaying(false);
+      });
+      if (cancelled) { ulTtsDone(); return; }
+      cleanups.push(ulTtsDone);
     })();
 
     onCleanup(() => {
@@ -522,9 +543,13 @@ export function SidebarShell() {
         // Auto-play full guidance on arrival if TTS enabled (D-12)
         if (ttsEnabled()) {
           setTtsError("");
+          setIsTtsLoading(true);
+          setIsTtsPlaying(false);
           playTts(accumulatedText).catch((err: unknown) => {
             if (import.meta.env.DEV) console.error("TTS auto-play failed:", err);
-            setTtsError("Audio unavailable — check your ElevenLabs key is set in the worker.");
+            setIsTtsLoading(false);
+            setIsTtsPlaying(false);
+            setTtsError("Audio unavailable — check your connection.");
           });
         }
         // Phase 5: Record interaction fire-and-forget (D-01)
@@ -996,39 +1021,54 @@ export function SidebarShell() {
                 />
               )
             }
-            {/* TTS: Read aloud button + error shown after guidance lands */}
+            {/* TTS: Read aloud / Loading / Stop button + error */}
             <Show when={ttsEnabled()}>
               <div style={{ display: "flex", "align-items": "center", gap: "var(--space-sm)", "padding-top": "var(--space-xs)" }}>
                 <button
+                  disabled={isTtsLoading()}
                   onClick={() => {
+                    if (isTtsPlaying()) {
+                      // Stop active playback
+                      stopTts().catch((err: unknown) => {
+                        if (import.meta.env.DEV) console.error("TTS stop failed:", err);
+                      });
+                      return;
+                    }
                     const text = currentExchange()?.guidance ?? "";
                     if (!text) return;
                     setTtsError("");
+                    setIsTtsLoading(true);
+                    setIsTtsPlaying(false);
                     playTts(text).catch((err: unknown) => {
                       if (import.meta.env.DEV) console.error("TTS play failed:", err);
-                      setTtsError("Audio unavailable — check ElevenLabs key in the worker.");
+                      setIsTtsLoading(false);
+                      setIsTtsPlaying(false);
+                      setTtsError("Audio unavailable — check your connection.");
                     });
                   }}
-                  title="Read guidance aloud"
-                  aria-label="Read guidance aloud"
+                  title={isTtsPlaying() ? "Stop playback" : "Read guidance aloud"}
+                  aria-label={isTtsPlaying() ? "Stop playback" : "Read guidance aloud"}
                   style={{
                     display: "flex",
                     "align-items": "center",
                     gap: "var(--space-xs)",
                     border: "none",
                     background: "transparent",
-                    cursor: "pointer",
+                    cursor: isTtsLoading() ? "wait" : "pointer",
                     padding: "var(--space-xs)",
-                    color: "var(--color-text-secondary)",
+                    color: isTtsPlaying() ? "var(--color-accent)" : "var(--color-text-secondary)",
+                    opacity: isTtsLoading() ? "0.5" : "1",
                     "font-size": "var(--font-size-label)",
                     "border-radius": "var(--radius-sm)",
-                    transition: "color var(--transition-fast)",
+                    transition: "color var(--transition-fast), opacity var(--transition-fast)",
                   }}
-                  onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.color = "var(--color-accent)"; }}
-                  onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.color = "var(--color-text-secondary)"; }}
                 >
-                  <Volume2 size={14} />
-                  Read aloud
+                  {isTtsLoading()
+                    ? <><Volume2 size={14} /> Loading...</>
+                    : isTtsPlaying()
+                      ? <><Square size={14} /> Stop</>
+                      : <><Volume2 size={14} /> Read aloud</>
+                  }
                 </button>
                 <Show when={ttsError().length > 0}>
                   <p style={{ margin: "0", "font-size": "var(--font-size-label)", color: "var(--color-error, #ef4444)" }}>

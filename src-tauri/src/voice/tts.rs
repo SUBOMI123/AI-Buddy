@@ -8,6 +8,12 @@
 //!   5. Create new stop channel, register sender in STOP_TX
 //!   6. Spawn std::thread: DeviceSinkBuilder::open_default_sink() → MixerDeviceSink
 //!      → Decoder → mixer().add(source), poll stop_rx every 50ms
+//!   7. Emit `tts-started` immediately after spawning thread
+//!   8. Thread emits `tts-done` on natural completion or stop signal
+//!
+//! stop_tts flow:
+//!   1. Send stop signal via STOP_TX
+//!   2. Emit `tts-done` so frontend resets its playing state
 //!
 //! rodio 0.22 breaking changes from 0.19:
 //!   - OutputStream removed → use DeviceSinkBuilder::open_default_sink() (static method)
@@ -17,7 +23,7 @@
 use std::io::Cursor;
 use std::sync::Mutex;
 use std::sync::mpsc;
-use tauri::AppHandle;
+use tauri::{AppHandle, Emitter};
 
 /// Stop-signal sender for the active TTS playback thread.
 /// D-16: send `()` here to stop current playback before starting new.
@@ -85,6 +91,9 @@ pub async fn cmd_play_tts(app: AppHandle, text: String) -> Result<(), String> {
         *guard = Some(stop_tx);
     }
 
+    // Clone AppHandle so the playback thread can emit events (AppHandle is Clone + Send).
+    let app_for_thread = app.clone();
+
     // Play audio on a dedicated std::thread.
     // MixerDeviceSink is !Send on macOS (wraps cpal Stream / CoreAudio internals) — cannot use tokio::spawn.
     std::thread::spawn(move || {
@@ -96,6 +105,7 @@ pub async fn cmd_play_tts(app: AppHandle, text: String) -> Result<(), String> {
             Ok(h) => h,
             Err(e) => {
                 eprintln!("TTS: audio output unavailable: {}", e);
+                let _ = app_for_thread.emit("tts-done", ());
                 return;
             }
         };
@@ -106,14 +116,11 @@ pub async fn cmd_play_tts(app: AppHandle, text: String) -> Result<(), String> {
             Ok(s) => s,
             Err(e) => {
                 eprintln!("TTS: failed to decode audio: {}", e);
+                let _ = app_for_thread.emit("tts-done", ());
                 return;
             }
         };
 
-        // Get approximate duration from source before moving it into mixer.
-        // ElevenLabs MP3 for typical 50-300 char text: ~1-10 seconds.
-        // We poll the stop channel every 50ms and exit when stop signal arrives or
-        // we estimate the audio should be done (generous 60s ceiling).
         handle.mixer().add(source);
 
         // Poll stop signal every 50ms. Use a 60-second ceiling to ensure the thread
@@ -124,7 +131,7 @@ pub async fn cmd_play_tts(app: AppHandle, text: String) -> Result<(), String> {
 
         loop {
             if stop_rx.try_recv().is_ok() {
-                // D-16: pre-empted by a new Play request — drop handle to stop audio
+                // D-16: pre-empted by a new Play/Stop request — drop handle to stop audio
                 drop(handle);
                 break;
             }
@@ -133,9 +140,30 @@ pub async fn cmd_play_tts(app: AppHandle, text: String) -> Result<(), String> {
             }
             std::thread::sleep(poll_interval);
         }
-        // handle drops here, releasing audio output resources
+        // Emit tts-done so frontend resets its playing state
+        let _ = app_for_thread.emit("tts-done", ());
     });
 
+    // Emit tts-started immediately after spawning — frontend switches from "Loading" to "Stop" button
+    let _ = app.emit("tts-started", ());
+
+    Ok(())
+}
+
+/// Tauri command: stop any active TTS playback immediately.
+///
+/// Sends the stop signal to the playback thread and emits `tts-done`
+/// so the frontend resets its playing state even before the thread polls.
+#[tauri::command]
+pub async fn cmd_stop_tts(app: AppHandle) -> Result<(), String> {
+    {
+        let mut guard = STOP_TX.lock().map_err(|_| "stop-signal lock poisoned".to_string())?;
+        if let Some(tx) = guard.take() {
+            let _ = tx.try_send(());
+        }
+    }
+    // Emit immediately so frontend doesn't wait for the 50ms poll cycle
+    let _ = app.emit("tts-done", ());
     Ok(())
 }
 

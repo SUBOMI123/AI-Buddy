@@ -78,6 +78,23 @@ export async function playTts(text: string): Promise<void> {
   return invoke("cmd_play_tts", { text });
 }
 
+// Stop any active TTS playback immediately.
+export async function stopTts(): Promise<void> {
+  return invoke("cmd_stop_tts");
+}
+
+// Emitted by Rust immediately after the playback thread is spawned.
+// Frontend uses this to transition from "Loading…" → "Stop" button state.
+export function onTtsStarted(callback: () => void) {
+  return listen("tts-started", () => callback());
+}
+
+// Emitted by Rust when playback finishes naturally or is stopped.
+// Frontend uses this to reset button back to "Read aloud".
+export function onTtsDone(callback: () => void) {
+  return listen("tts-done", () => callback());
+}
+
 // STT Tauri event listeners
 // Used by SidebarShell to receive transcript events from the Rust PTT pipeline
 export function onPttStart(callback: () => void) {
